@@ -33,6 +33,8 @@
 
 #include <libcouchbase/couchbase.h>
 
+#include <libdrizzle/drizzle_client.h>
+
 static void usage(char cmd, const void *arg, void *cookie);
 static void set_char_ptr(char cmd, const void *arg, void *cookie) {
     (void)cmd;
@@ -44,7 +46,15 @@ const char *host = "localhost:8091";
 const char *username = NULL;
 const char *passwd = NULL;
 const char *bucket = NULL;
-const char *filename = "-";
+
+static drizzle_st *drizzle;
+static drizzle_con_st *drizzle_con;
+
+static const char *drizzle_host = "localhost";
+static const in_port_t drizzle_port = 4427;
+static const char *drizzle_user = NULL;
+static const char *drizzle_passwd = NULL;
+static const char *drizzle_dbname = NULL;
 
 static void set_auth_data(char cmd, const void *arg, void *cookie) {
     (void)cmd;
@@ -105,6 +115,38 @@ static struct {
         .handler = set_char_ptr,
         .cookie = &host
     },
+    ['H'] = {
+        .name = "drizzle-host",
+        .description = "\t-H host\tWhere drizzle is running",
+        .argument = true,
+        .letter = 'H',
+        .handler = set_char_ptr,
+        .cookie = &drizzle_host
+    },
+    ['U'] = {
+        .name = "drizzle-user",
+        .description = "\t-U nm\tSpecify drizzle username",
+        .argument = true,
+        .letter = 'U',
+        .handler = set_char_ptr,
+        .cookie = &drizzle_user
+    },
+    ['P'] = {
+        .name = "drizzle-passwd",
+        .description = "\t-P nm\tSpecify drizzle password",
+        .argument = true,
+        .letter = 'P',
+        .handler = set_char_ptr,
+        .cookie = &drizzle_passwd
+    },
+    ['S'] = {
+        .name = "drizzle-dbnm",
+        .description = "\t-S nm\tSpecify drizzle database name",
+        .argument = true,
+        .letter = 'S',
+        .handler = set_char_ptr,
+        .cookie = &drizzle_dbname
+    },
     ['b'] = {
         .name = "bucket",
         .description = "\t-b bucket\tThe bucket to connect to",
@@ -112,14 +154,6 @@ static struct {
         .letter = 'b',
         .handler = set_char_ptr,
         .cookie = &bucket
-    },
-    ['o'] = {
-        .name = "file",
-        .description = "\t-o filename\tSend the output to this file",
-        .argument = true,
-        .letter = 'o',
-        .handler = set_char_ptr,
-        .cookie = &filename
     },
 };
 
@@ -159,7 +193,25 @@ static void handle_options(int argc, char **argv) {
     }
 }
 
-FILE *output;
+static void drizzle_init(void) {
+    if ((drizzle = drizzle_create(NULL)) == NULL) {
+        fprintf(stderr, "Failed to create drizzle instance\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if ((drizzle_con = drizzle_con_create(drizzle, NULL)) == NULL) {
+        fprintf(stderr, "Failed to create drizzle connection instance\n");
+        exit(EXIT_FAILURE);
+    }
+
+    drizzle_con_set_tcp(drizzle_con, drizzle_host, drizzle_port);
+    drizzle_con_set_auth(drizzle_con, drizzle_user, drizzle_passwd);
+    drizzle_con_set_db(drizzle_con, drizzle_dbname);
+
+    // @todo I should probably run connect to verify that the stuff works?
+}
+
+static char *sql_buffer[8192 * 1024];
 
 static void tap_mutation(libcouchbase_t instance,
                          const void *key,
@@ -171,31 +223,104 @@ static void tap_mutation(libcouchbase_t instance,
                          const void *es,
                          size_t nes)
 {
-    fwrite(key, nkey, 1, output);
-    fprintf(output, " 0x%04X\r\n", (unsigned int)nbytes);
-    (void)instance;
-    (void)data;
-    (void)flags;
-    (void)exp;
-    (void)es;
-    (void)nes;
+    (void)instance;(void)flags;(void)exp;(void)es;(void)nes;
+    // @todo decode jSON
+    size_t len = (size_t)snprintf(sql_buffer, sizeof(sql_buffer),
+                                  "REPLACE INTO dumptable(k, v) VALUES('");
+    len += drizzle_escape_string(sql_buffer + len, key, nkey);
+    len += (size_t)snprintf(sql_buffer + len, sizeof(sql_buffer), "','");
+    len += drizzle_escape_string(sql_buffer + len, data, nbytes);
+    len += (size_t)snprintf(sql_buffer + len, sizeof(sql_buffer), "');");
+
+    drizzle_result_st *result = drizzle_result_create(drizzle_con, NULL);
+    if (result == NULL) {
+        fprintf(stderr, "Failed to create result structure\n");
+        exit(EXIT_FAILURE);
+    }
+
+    drizzle_return_t ret;
+    drizzle_query_str(drizzle_con, result, sql_buffer, &ret);
+
+    if (ret != DRIZZLE_RETURN_OK) {
+        fprintf(stderr, "Failed to add entry to the database: %s\n",
+                drizzle_con_error(drizzle_con));
+    }
+
+    drizzle_result_free(result);
+}
+
+static void tap_deletion(libcouchbase_t instance,
+                         const void *key,
+                         size_t nkey,
+                         const void *es,
+                         size_t nes)
+{
+
+    (void)instance; (void)es; (void)nes; (void)key; (void)nkey;
+    int len = snprintf(sql_buffer, sizeof(sql_buffer),
+                       "delete from dumptable where k='");
+    len += (int)drizzle_escape_string(sql_buffer + len, key, nkey);
+    strcpy(sql_buffer + len, "';");
+
+    drizzle_result_st *result = drizzle_result_create(drizzle_con, NULL);
+    if (result == NULL) {
+        fprintf(stderr, "Failed to create result structure\n");
+        exit(EXIT_FAILURE);
+    }
+
+    drizzle_return_t ret;
+    drizzle_query_str(drizzle_con, result, sql_buffer, &ret);
+
+    if (ret != DRIZZLE_RETURN_OK) {
+        fprintf(stderr, "Failed to nuke table: %s\n",
+                drizzle_con_error(drizzle_con));
+    }
+
+    drizzle_result_free(result);
+}
+
+static void tap_flush(libcouchbase_t instance,
+                      const void *es,
+                      size_t nes)
+{
+    (void)instance; (void)es; (void)nes;
+
+    drizzle_result_st *result = drizzle_result_create(drizzle_con, NULL);
+    if (result == NULL) {
+        fprintf(stderr, "Failed to create result structure\n");
+        exit(EXIT_FAILURE);
+    }
+
+    drizzle_return_t ret;
+    drizzle_query_str(drizzle_con, result, "delete from dumptable;", &ret);
+
+    if (ret != DRIZZLE_RETURN_OK) {
+        fprintf(stderr, "Failed to nuke table: %s\n",
+                drizzle_con_error(drizzle_con));
+    }
+
+    drizzle_result_free(result);
 }
 
 int main(int argc, char **argv)
 {
     handle_options(argc, argv);
 
-    if (strcmp(filename, "-") == 0) {
-        output = stdout;
-    } else {
-        output = fopen(filename, "w");
-        if (output == NULL) {
-            fprintf(stderr, "Failed to open %s: %s\n", filename,
-                    strerror(errno));
-            return 1;
+    if (!drizzle_user || !drizzle_passwd || !drizzle_dbname) {
+        fprintf(stderr, "You need to specify:\n");
+        if (!drizzle_user) {
+            fprintf(stderr, "\t-U drizzle-user\n");
         }
+        if (!drizzle_passwd) {
+            fprintf(stderr, "\t-P drizzle-password\n");
+        }
+        if (!drizzle_dbname) {
+            fprintf(stderr, "\t-S drizzle-database\n");
+        }
+        exit(1);
     }
 
+    drizzle_init();
     struct event_base *evbase = event_init();
 
     libcouchbase_t instance = libcouchbase_create(host, username,
@@ -212,6 +337,8 @@ int main(int argc, char **argv)
 
     libcouchbase_callback_t callbacks = {
         .tap_mutation = tap_mutation,
+        .tap_deletion = tap_deletion,
+        .tap_flush = tap_flush
     };
     libcouchbase_set_callbacks(instance, &callbacks);
     libcouchbase_tap_cluster(instance, NULL, true);

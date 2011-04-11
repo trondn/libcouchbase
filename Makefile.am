@@ -80,7 +80,7 @@ example_memcp_LDFLAGS = $(LTLIBEVENT)
 
 example_memdump_SOURCES = example/memdump.c
 example_memdump_LDADD = libcouchbase.la
-example_memdump_LDFLAGS = $(LTLIBEVENT)
+example_memdump_LDFLAGS = $(LTLIBEVENT) $(LTLIBDRIZZLE)
 
 example_memrm_SOURCES = example/memrm.c
 example_memrm_LDADD = libcouchbase.la
