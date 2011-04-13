@@ -268,21 +268,17 @@ static void tap_mutation(libcouchbase_t instance,
     len += drizzle_escape_string(sql_buffer + len, when, strlen(when));
     len += (size_t)sprintf(sql_buffer + len, "',%d);", damage);
 
-    drizzle_result_st *result = drizzle_result_create(drizzle_con, NULL);
-    if (result == NULL) {
-        fprintf(stderr, "Failed to create result structure\n");
-        exit(EXIT_FAILURE);
-    }
-
     drizzle_return_t ret;
-    drizzle_query_str(drizzle_con, result, sql_buffer, &ret);
+    drizzle_result_st *result = drizzle_query_str(drizzle_con, NULL, sql_buffer, &ret);
 
     if (ret != DRIZZLE_RETURN_OK) {
         fprintf(stderr, "Failed to add entry to the database: %s\n",
                 drizzle_con_error(drizzle_con));
     }
 
-    drizzle_result_free(result);
+    if (result != NULL) {
+        drizzle_result_free(result);
+    }
     cJSON_Delete(c);
 }
 
