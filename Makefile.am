@@ -70,6 +70,11 @@ noinst_PROGRAMS = \
                example/memdump \
                example/memrm
 
+noinst_LTLIBRARIES=libcjson.la
+
+libcjson_la_SOURCES = example/cJSON.h example/cJSON.c
+libcjson_la_CFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS) $(NO_WERROR)
+
 example_memcat_SOURCES = example/memcat.c
 example_memcat_LDADD = libcouchbase.la
 example_memcat_LDFLAGS = $(LTLIBEVENT)
@@ -79,7 +84,7 @@ example_memcp_LDADD = libcouchbase.la
 example_memcp_LDFLAGS = $(LTLIBEVENT)
 
 example_memdump_SOURCES = example/memdump.c
-example_memdump_LDADD = libcouchbase.la
+example_memdump_LDADD = libcouchbase.la libcjson.la
 example_memdump_LDFLAGS = $(LTLIBEVENT) $(LTLIBDRIZZLE)
 
 example_memrm_SOURCES = example/memrm.c

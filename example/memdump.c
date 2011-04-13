@@ -34,6 +34,7 @@
 #include <libcouchbase/couchbase.h>
 
 #include <libdrizzle/drizzle_client.h>
+#include "cJSON.h"
 
 static void usage(char cmd, const void *arg, void *cookie);
 static void set_char_ptr(char cmd, const void *arg, void *cookie) {
@@ -211,7 +212,18 @@ static void drizzle_init(void) {
     // @todo I should probably run connect to verify that the stuff works?
 }
 
-static char *sql_buffer[8192 * 1024];
+static char sql_buffer[8192 * 1024];
+static char json_buffer[8192 * 1024];
+
+static const char *get_char_val(cJSON *c, const char *key) {
+    cJSON *obj = cJSON_GetObjectItem(c, key);
+    return (obj != NULL && obj->type == cJSON_String) ? obj->valuestring : "";
+}
+
+static int get_int_val(cJSON *c, const char *key) {
+    cJSON *obj = cJSON_GetObjectItem(c, key);
+    return (obj != NULL && obj->type == cJSON_Number) ? obj->valueint : -1;
+}
 
 static void tap_mutation(libcouchbase_t instance,
                          const void *key,
@@ -223,14 +235,38 @@ static void tap_mutation(libcouchbase_t instance,
                          const void *es,
                          size_t nes)
 {
+    assert(nbytes < sizeof(json_buffer));
+    memcpy(json_buffer, data, nbytes);
+    json_buffer[nbytes] = '\0';
+
+    cJSON *c = cJSON_Parse(json_buffer);
+    if (c == NULL) {
+        memcpy(json_buffer, key, nkey);
+        json_buffer[nkey] = '\0';
+        fprintf(stderr, "Failed to parse JSON, ignored key \"%s\"",
+                json_buffer);
+        return ;
+    }
+
+    const char *attacking = get_char_val(c, "attackingPlayer");
+    const char *defending = get_char_val(c, "defendingPlayer");
+    const char *winner = get_char_val(c, "winner");
+    const char *when = get_char_val(c, "when");
+    int damage = get_int_val(c, "damage");
+
     (void)instance;(void)flags;(void)exp;(void)es;(void)nes;
-    // @todo decode jSON
-    size_t len = (size_t)snprintf(sql_buffer, sizeof(sql_buffer),
-                                  "REPLACE INTO dumptable(k, v) VALUES('");
-    len += drizzle_escape_string(sql_buffer + len, key, nkey);
-    len += (size_t)snprintf(sql_buffer + len, sizeof(sql_buffer), "','");
-    len += drizzle_escape_string(sql_buffer + len, data, nbytes);
-    len += (size_t)snprintf(sql_buffer + len, sizeof(sql_buffer), "');");
+    size_t len = (size_t)sprintf(sql_buffer,
+                                  "REPLACE INTO Fight(Attacker, "
+                                  "Defender, Winner, FightTime, "
+                                  "Damage) VALUES('");
+    len += drizzle_escape_string(sql_buffer + len, attacking, strlen(attacking));
+    len += (size_t)sprintf(sql_buffer + len, "','");
+    len += drizzle_escape_string(sql_buffer + len, defending, strlen(defending));
+    len += (size_t)sprintf(sql_buffer + len, "','");
+    len += drizzle_escape_string(sql_buffer + len, winner, strlen(winner));
+    len += (size_t)sprintf(sql_buffer + len, "','");
+    len += drizzle_escape_string(sql_buffer + len, when, strlen(when));
+    len += (size_t)sprintf(sql_buffer + len, "',%d);", damage);
 
     drizzle_result_st *result = drizzle_result_create(drizzle_con, NULL);
     if (result == NULL) {
@@ -247,8 +283,10 @@ static void tap_mutation(libcouchbase_t instance,
     }
 
     drizzle_result_free(result);
+    cJSON_Delete(c);
 }
 
+#if 0
 static void tap_deletion(libcouchbase_t instance,
                          const void *key,
                          size_t nkey,
@@ -301,6 +339,7 @@ static void tap_flush(libcouchbase_t instance,
 
     drizzle_result_free(result);
 }
+#endif
 
 int main(int argc, char **argv)
 {
@@ -337,8 +376,8 @@ int main(int argc, char **argv)
 
     libcouchbase_callback_t callbacks = {
         .tap_mutation = tap_mutation,
-        .tap_deletion = tap_deletion,
-        .tap_flush = tap_flush
+        /* .tap_deletion = tap_deletion, */
+        /* .tap_flush = tap_flush */
     };
     libcouchbase_set_callbacks(instance, &callbacks);
     libcouchbase_tap_cluster(instance, NULL, true);
