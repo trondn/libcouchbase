@@ -56,7 +56,7 @@ static void getq_response_handler(libcouchbase_server_t *server,
     size_t nkey = ntohs(req->request.keylen);
     uint16_t status = ntohs(res->response.status);
     size_t nbytes = ntohl(res->response.bodylen);
-    nbytes -= nkey - res->response.extlen;
+    nbytes -= res->response.extlen;
 
     assert(req->request.opaque == res->response.opaque);
     if (status == PROTOCOL_BINARY_RESPONSE_SUCCESS) {
