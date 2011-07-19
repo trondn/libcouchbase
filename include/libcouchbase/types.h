@@ -83,7 +83,12 @@ extern "C" {
      * it's not supported...
      * @todo come up with how I want the filters to look like
      */
-    typedef void* libcouchbase_tap_filter_t;
+    typedef struct {
+        uint64_t backfill;
+        bool keys_only;
+    } libcouchbase_tap_filter_st;
+
+    typedef libcouchbase_tap_filter_st* libcouchbase_tap_filter_t;
 
     typedef bool (*libcouchbase_packet_filter_t)(libcouchbase_t instance,
                                                  const void *packet);
