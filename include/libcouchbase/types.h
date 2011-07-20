@@ -78,12 +78,26 @@ extern "C" {
         LIBCOUCHBASE_PREPEND
     } libcouchbase_storage_t;
 
+
     /**
-     * We might want to tap just a subset of the bucket. Right now
-     * it's not supported...
-     * @todo come up with how I want the filters to look like
+     * Clients of the library should not know the size or the internal
+     * layout of the tap filter handle. Sharing knowledge about the
+     * internal layout makes it a lot harder to keep binary compatibility
+     * (if people tries to use it's sice etc).
      */
+#ifdef LIBCOUCHBASE_INTERNAL
+    typedef struct {
+        /** Represents the oldest entry (from epoch) you're interested in */
+        uint64_t backfill;
+        /** If true, notifies the tap server that we don't care about values */
+        bool keys_only;
+    } libcouchbase_tap_filter_st;
+
+    typedef libcouchbase_tap_filter_st* libcouchbase_tap_filter_t;
+#else
     typedef void* libcouchbase_tap_filter_t;
+#endif
+
 
     typedef bool (*libcouchbase_packet_filter_t)(libcouchbase_t instance,
                                                  const void *packet);
