@@ -63,6 +63,8 @@ libcouchbase_la_SOURCES = \
                         src/flush.c \
                         src/get.c \
                         src/handler.c \
+                        src/hashset.c \
+                        src/hashset.h \
                         src/instance.c \
                         src/internal.h \
                         src/packet.c \
