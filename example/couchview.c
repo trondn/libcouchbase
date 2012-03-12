@@ -25,7 +25,6 @@
  * @author Sergey Avseyev
  */
 #include "config.h"
-#include <unistd.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <ctype.h>
