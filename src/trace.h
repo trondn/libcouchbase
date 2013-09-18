@@ -57,6 +57,7 @@
                                   (char*)(resp)->v.v0.key,  \
                                   (resp)->v.v0.nkey))
 
+
 #define TRACE_STORE_BEGIN(req, key, nkey, bytes, nbytes, flags, expiration)         \
     TRACE(LIBCOUCHBASE_STORE_BEGIN((req)->message.header.request.opaque,            \
                                    ntohs((req)->message.header.request.vbucket),    \
@@ -105,6 +106,19 @@
                                  (char*)(resp)->v.v0.key,       \
                                  (resp)->v.v0.nkey,             \
                                  (resp)->v.v0.cas))
+
+#define TRACE_EVICT_BEGIN(req, key, nkey)                             \
+    TRACE(LIBCOUCHBASE_EVICT_BEGIN((req)->message.header.request.opaque,          \
+                                   ntohs((req)->message.header.request.vbucket),  \
+                                   (req)->message.header.request.opcode,          \
+                                   (char*)key, (lcb_uint32_t)nkey))
+
+#define TRACE_EVICT_END(opaque, vbucket, opcode, rc, resp)      \
+    TRACE(LIBCOUCHBASE_EVICT_END(opaque, vbucket,               \
+                                 opcode, rc,                    \
+                                 (char*)(resp)->v.v0.key,       \
+                                 (resp)->v.v0.nkey))
+
 
 #define TRACE_REMOVE_BEGIN(req, key, nkey)                                          \
     TRACE(LIBCOUCHBASE_REMOVE_BEGIN((req)->message.header.request.opaque,           \

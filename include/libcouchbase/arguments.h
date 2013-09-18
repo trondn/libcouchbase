@@ -764,7 +764,59 @@ extern "C" {
         } v;
     } lcb_flush_resp_t;
 
-#define LCB_ST_M 26
+
+#define LCB_E_C_ST_ID 27
+#define LCB_E_C_ST_V 0
+    typedef struct lcb_evict_cmd_st {
+        int version;
+        union {
+            struct {
+                const void *key;
+                lcb_size_t nkey;
+                lcb_cas_t cas;
+                const void *hashkey;
+                lcb_size_t nhashkey;
+            } v0;
+        } v;
+
+#ifdef __cplusplus
+        lcb_evict_cmd_st(const void *key,
+                         lcb_size_t nkey = 0,
+                         lcb_cas_t cas = 0,
+                         const void *hashkey = NULL,
+                         lcb_size_t nhashkey = 0) {
+            version = 0;
+            v.v0.key = key;
+            if (key != NULL && nkey == 0) {
+                v.v0.nkey = std::strlen((const char *)key);
+            } else {
+                v.v0.nkey = nkey;
+            }
+            v.v0.cas = cas;
+            v.v0.hashkey = hashkey;
+            if (hashkey != NULL && nhashkey == 0) {
+                v.v0.nhashkey = std::strlen((const char *)hashkey);
+            } else {
+                v.v0.nhashkey = nhashkey;
+            }
+        }
+#endif
+    } lcb_evict_cmd_t;
+
+#define LCB_E_R_ST_ID 28
+#define LCB_E_R_ST_V 0
+    typedef struct {
+        int version;
+        union {
+            struct {
+                const void *key;
+                lcb_size_t nkey;
+            } v0;
+        } v;
+    } lcb_evict_resp_t;
+
+
+#define LCB_ST_M 28
 
 #ifdef __cplusplus
 }

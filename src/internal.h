@@ -181,6 +181,7 @@ extern "C" {
         lcb_durability_callback durability;
         lcb_exists_callback exists;
         lcb_errmap_callback errmap;
+        lcb_evict_callback evict;
     };
 
     struct lcb_st {

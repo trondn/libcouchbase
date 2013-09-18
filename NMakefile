@@ -60,6 +60,7 @@ libcouchbase_SOURCES = \
     src\cookie.c \
     src\durability.c \
     src\error.c \
+    src\evict.c \
     src\flush.c \
     src\genhash.c \
     src\get.c \

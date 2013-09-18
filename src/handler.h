@@ -38,6 +38,9 @@ void setup_lcb_touch_resp_t(lcb_touch_resp_t *resp,
                             const void *key,
                             lcb_size_t nkey,
                             lcb_cas_t cas);
+void setup_lcb_evict_resp_t(lcb_evict_resp_t *resp,
+                            const void *key,
+                            lcb_size_t nkey);
 void setup_lcb_unlock_resp_t(lcb_unlock_resp_t *resp,
                              const void *key,
                              lcb_size_t nkey);

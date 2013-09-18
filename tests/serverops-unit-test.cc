@@ -207,3 +207,48 @@ TEST_F(ServeropsUnitTest, testVerbosity)
     verbosity_endpoint = NULL;
 
 }
+
+extern "C" {
+    static void evict_callback(lcb_t, const void *cookie,
+                               lcb_error_t error,
+                               const lcb_evict_resp_t *)
+    {
+        lcb_error_t *ptr = (lcb_error_t*)cookie;
+        *ptr = error;
+    }
+}
+
+TEST_F(ServeropsUnitTest, testEvict)
+{
+    lcb_t instance;
+    HandleWrap hw;
+    createConnection(hw, instance);
+
+    SKIP_IF_MOCK();
+    (void)lcb_set_evict_callback(instance, evict_callback);
+
+    /* evict missing key */
+    removeKey(instance, "evict_command");
+    lcb_evict_cmd_t cmd("evict_command");
+    lcb_evict_cmd_t *cmds[] = { &cmd };
+    lcb_error_t error;
+    memset(&error, 0xff, sizeof(error));
+    EXPECT_EQ(LCB_SUCCESS, lcb_evict(instance, &error, 1, cmds));
+    lcb_wait(instance);
+    EXPECT_EQ(LCB_KEY_ENOENT, error);
+
+    /* evict small key => LCB_KEY_EEXISTS */
+    storeKey(instance, "evict_command", "foo");
+    memset(&error, 0xff, sizeof(error));
+    EXPECT_EQ(LCB_KEY_EEXISTS, lcb_evict(instance, &error, 1, cmds));
+    lcb_wait(instance);
+    EXPECT_EQ(LCB_SUCCESS, error);
+
+    /* evict large key */
+    std::string val(1048576, 'x'); /* one megabyte */
+    storeKey(instance, "evict_command", val);
+    memset(&error, 0xff, sizeof(error));
+    EXPECT_EQ(LCB_SUCCESS, lcb_evict(instance, &error, 1, cmds));
+    lcb_wait(instance);
+    EXPECT_EQ(LCB_SUCCESS, error);
+}

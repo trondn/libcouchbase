@@ -80,6 +80,16 @@ void setup_lcb_touch_resp_t(lcb_touch_resp_t *resp,
     resp->v.v0.cas = cas;
 }
 
+void setup_lcb_evict_resp_t(lcb_evict_resp_t *resp,
+                            const void *key,
+                            lcb_size_t nkey)
+{
+    memset(resp, 0, sizeof(*resp));
+    resp->version = 0;
+    resp->v.v0.key = key;
+    resp->v.v0.nkey = nkey;
+}
+
 void setup_lcb_unlock_resp_t(lcb_unlock_resp_t *resp,
                              const void *key,
                              lcb_size_t nkey)
@@ -960,6 +970,30 @@ static void touch_response_handler(lcb_server_t *server,
     }
 }
 
+static void evict_response_handler(lcb_server_t *server,
+                                   struct lcb_command_data_st *command_data,
+                                   protocol_binary_response_header *res)
+{
+    lcb_t root = server->instance;
+    char *packet;
+    lcb_uint16_t nkey;
+    const char *key = get_key(server, &nkey, &packet);
+    lcb_uint16_t status = ntohs(res->response.status);
+    lcb_error_t rc = map_error(root, status);
+
+    if (key == NULL) {
+        lcb_error_handler(server->instance, LCB_EINTERNAL,
+                          NULL);
+    } else {
+        lcb_evict_resp_t resp;
+        setup_lcb_evict_resp_t(&resp, key, nkey);
+        TRACE_EVICT_END(res->response.opaque, command_data->vbucket,
+                        res->response.opcode, rc, &resp);
+        root->callbacks.evict(root, command_data->cookie, rc, &resp);
+        release_key(server, packet);
+    }
+}
+
 static void flush_response_handler(lcb_server_t *server,
                                    struct lcb_command_data_st *command_data,
                                    protocol_binary_response_header *res)
@@ -1182,6 +1216,17 @@ static void dummy_durability_callback(lcb_t instance,
     (void)resp;
 }
 
+static void dummy_evict_callback(lcb_t instance,
+                                 const void *cookie,
+                                 lcb_error_t error,
+                                 const lcb_evict_resp_t *resp)
+{
+    (void)instance;
+    (void)cookie;
+    (void)error;
+    (void)resp;
+}
+
 void lcb_initialize_packet_handlers(lcb_t instance)
 {
     instance->callbacks.get = dummy_get_callback;
@@ -1201,6 +1246,7 @@ void lcb_initialize_packet_handlers(lcb_t instance)
     instance->callbacks.verbosity = dummy_verbosity_callback;
     instance->callbacks.durability = dummy_durability_callback;
     instance->callbacks.errmap = lcb_errmap_default;
+    instance->callbacks.evict = dummy_evict_callback;
 }
 
 int lcb_dispatch_response(lcb_server_t *c,
@@ -1266,6 +1312,9 @@ int lcb_dispatch_response(lcb_server_t *c,
         break;
     case CMD_OBSERVE:
         observe_response_handler(c, ct, (void *)header);
+        break;
+    case CMD_EVICT_KEY:
+        evict_response_handler(c, ct, (void*)header);
         break;
     case PROTOCOL_BINARY_CMD_NOOP:
         /* Ignore */
@@ -1458,6 +1507,17 @@ lcb_errmap_callback lcb_set_errmap_callback(lcb_t instance,
     lcb_errmap_callback ret = instance->callbacks.errmap;
     if (cb != NULL) {
         instance->callbacks.errmap = cb;
+    }
+    return ret;
+}
+
+LIBCOUCHBASE_API
+lcb_evict_callback lcb_set_evict_callback(lcb_t instance,
+                                                    lcb_evict_callback cb)
+{
+    lcb_evict_callback ret = instance->callbacks.evict;
+    if (cb != NULL) {
+        instance->callbacks.evict = cb;
     }
     return ret;
 }

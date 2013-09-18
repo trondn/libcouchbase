@@ -86,6 +86,7 @@ static void failout_single_request(lcb_server_t *server,
         lcb_server_version_resp_t versions;
         lcb_verbosity_resp_t verbosity;
         lcb_flush_resp_t flush;
+        lcb_evict_resp_t evict;
     } resp;
 
     switch (req->request.opcode) {
@@ -240,6 +241,13 @@ static void failout_single_request(lcb_server_t *server,
         lcb_failout_observe_request(server, ct, packet,
                                     sizeof(req->bytes) + ntohl(req->request.bodylen),
                                     error);
+        break;
+
+    case CMD_EVICT_KEY:
+        setup_lcb_evict_resp_t(&resp.evict, keyptr, nkey);
+        TRACE_EVICT_END(req->request.opaque, ntohs(req->request.vbucket),
+                        req->request.opcode, error, &resp.evict);
+        root->callbacks.evict(root, ct->cookie, error, &resp.evict);
         break;
 
     default:

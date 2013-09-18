@@ -170,6 +170,7 @@ libcouchbase_la_SOURCES = \
                         src/durability.c \
                         src/durability_internal.h \
                         src/error.c \
+                        src/evict.c \
                         src/flush.c \
                         src/genhash.c \
                         src/genhash.h \

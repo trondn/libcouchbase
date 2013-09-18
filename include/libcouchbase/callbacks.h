@@ -104,6 +104,19 @@ extern "C" {
                                         lcb_error_t error,
                                         const lcb_unlock_resp_t *resp);
 
+    /**
+     * The callback function for an eviction request.
+     *
+     * @param instance the instance performing the operation
+     * @param cookie the cookie associated with with the command
+     * @param error The status of the operation
+     * @param resp More information about the actual item (only key
+     *             and nkey is valid if error != LCB_SUCCESS)
+     */
+    typedef void (*lcb_evict_callback)(lcb_t instance,
+                                       const void *cookie,
+                                       lcb_error_t error,
+                                       const lcb_evict_resp_t *resp);
 
     /**
      * The callback function for an arithmetic request.
@@ -332,6 +345,9 @@ extern "C" {
 
     LIBCOUCHBASE_API
     lcb_errmap_callback lcb_set_errmap_callback(lcb_t, lcb_errmap_callback);
+
+    LIBCOUCHBASE_API
+    lcb_evict_callback lcb_set_evict_callback(lcb_t, lcb_evict_callback);
 
 #ifdef __cplusplus
 }

@@ -96,6 +96,18 @@ provider libcouchbase {
                     size_t,       /* nkey */
                     uint64_t);    /* cas */
 
+    probe evict_begin(uint32_t,       /* opaque */
+                      uint16_t,       /* vbucket */
+                      uint8_t,        /* opcode */
+                      const char*,    /* key */
+                      size_t);        /* nkey */
+    probe evict_end(uint32_t,     /* opaque */
+                    uint16_t,     /* vbucket */
+                    uint8_t,      /* opcode */
+                    uint16_t,     /* return code (from libcouchbase) */
+                    const char*,  /* key */
+                    size_t);      /* nkey */
+
     probe remove_begin(uint32_t,       /* opaque */
                        uint16_t,       /* vbucket */
                        uint8_t,        /* opcode */

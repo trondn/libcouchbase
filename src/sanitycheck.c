@@ -55,7 +55,9 @@ static const struct entry sizes[] = {
     { LCB_S_S_R_ST_V, sizeof(lcb_server_stat_resp_t) },
     { LCB_S_V_R_ST_V, sizeof(lcb_server_version_resp_t) },
     { LCB_V_R_ST_V, sizeof(lcb_verbosity_resp_t) },
-    { LCB_F_R_ST_V, sizeof(lcb_flush_resp_t) }
+    { LCB_F_R_ST_V, sizeof(lcb_flush_resp_t) },
+    { LCB_E_C_ST_V, sizeof(lcb_evict_cmd_t) },
+    { LCB_E_R_ST_V, sizeof(lcb_evict_resp_t) }
 };
 
 LIBCOUCHBASE_API

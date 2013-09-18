@@ -380,6 +380,33 @@ extern "C" {
                           const lcb_touch_cmd_t *const *commands);
 
     /**
+     * Evict a key from memory
+     *
+     * Example:
+     *   lcb_evict_cmd_t *cmd = calloc(1, sizeof(*cmd));
+     *   cmd->version = 0;
+     *   cmd->v.v0.key = "my-key";
+     *   cmd->v.v0.nkey = strlen(cmd->v.v0.key);
+     *   cnd->v.v0.cas = 0x666;
+     *   lcb_evict_cmd_t* commands[] = { cmd };
+     *   lcb_evict(instance, NULL, 1, commands);
+     *
+     * @param instance the handle to lcb
+     * @param command_cookie A cookie passed to all of the notifications
+     *                       from this command
+     * @param num the total number of elements in the commands array
+     * @param commands the array containing the items to ecict
+     * @return The status of the operation
+     */
+    LIBCOUCHBASE_API
+    lcb_error_t lcb_evict(lcb_t instance,
+                          const void *command_cookie,
+                          lcb_size_t num,
+                          const lcb_evict_cmd_t *const *commands);
+
+
+
+    /**
      * Store an item in the cluster.
      *
      * You may initialize all of the members in the the

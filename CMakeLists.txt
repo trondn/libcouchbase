@@ -164,6 +164,7 @@ ADD_LIBRARY(couchbase SHARED
             src/cookie.c
             src/durability.c
             src/error.c
+            src/evict.c
             src/flush.c
             src/get.c
             src/handler.c
