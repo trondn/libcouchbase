@@ -28,11 +28,8 @@ ACLOCAL_AMFLAGS = -I m4 --force
 
 lib_LTLIBRARIES = libcouchbase.la
 
-if BUILD_LIBCOUCHBASE_DEBUG
-lib_LTLIBRARIES += libcouchbase_debug.la
-endif
 noinst_LTLIBRARIES = libcbsasl.la libcrc32.la libhttpparser.la libketama.la libvbucket.la
-noinst_PROGRAMS = debug/sizes
+noinst_PROGRAMS =
 bin_PROGRAMS =
 check_PROGRAMS =
 
@@ -82,10 +79,6 @@ pkginclude_HEADERS = \
                      include/libcouchbase/visibility.h \
                      plugins/io/iocp/iocp_iops.h \
                      plugins/io/select/select_io_opts.h
-
-if BUILD_LIBCOUCHBASE_DEBUG
-pkginclude_HEADERS += include/libcouchbase/debug.h
-endif
 
 pkginclude_HEADERS += \
                      plugins/io/libev/libev_io_opts.h \
@@ -137,18 +130,6 @@ libketama_la_CPPFLAGS =  $(AM_NOWARN_CPPFLAGS)
 libcrc32_la_SOURCES = contrib/libvbucket/crc32.c
 libcrc32_la_CFLAGS = $(AM_NOWARN_CFLAGS)
 libcrc32_la_CPPFLAGS = $(AM_NOWARN_CPPFLAGS)
-
-libcouchbase_debug_la_LDFLAGS = $(AM_LDFLAGS) \
-       -version-info 1:0:0 \
-       -no-undefined $(AM_PROFILE_SOLDFLAGS)
-libcouchbase_debug_la_CPPFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS) \
-       -DLIBCOUCHBASE_INTERNAL=1
-
-libcouchbase_debug_la_DEPENDENCIES = libcouchbase.la
-libcouchbase_debug_la_LIBADD = libcouchbase.la
-
-libcouchbase_debug_la_SOURCES = \
-   debug/debug.cc
 
 libcouchbase_la_SOURCES = \
                         include/ep-engine/command_ids.h \
@@ -218,14 +199,6 @@ libcouchbase_la_LDFLAGS= $(AM_LDFLAGS) -version-info $(API_CURRENT):$(API_REVISI
 libcouchbase_la_CPPFLAGS=$(AM_CPPFLAGS) $(CPPFLAGS) -DLIBCOUCHBASE_INTERNAL=1 -DLCB_LIBDIR="\"${libdir}\""
 libcouchbase_la_DEPENDENCIES=libcbsasl.la libhttpparser.la libvbucket.la
 libcouchbase_la_LIBADD=libcbsasl.la libhttpparser.la libvbucket.la
-
-if LIBCOUCHBASE_ENABLE_TRACE
-libcouchbase_la_SOURCES += \
-                        src/debug.c \
-                        src/debug.h
-
-libcouchbase_la_CPPFLAGS += -DLCB_DEBUG_NOCTX
-endif
 
 if ENABLE_DTRACE
 BUILT_SOURCES += src/probes.h
@@ -442,10 +415,6 @@ noinst_PROGRAMS += example/yajl/couchview
 endif
 endif
 
-if BUILD_LIBCOUCHBASE_DEBUG
-noinst_PROGRAMS += example/debug/debug
-endif
-
 example_yajl_couchview_SOURCES = example/yajl/couchview.c
 example_yajl_couchview_LDADD = libcouchbase.la -lyajl
 
@@ -527,11 +496,6 @@ TESTS += tests/homebrew-acceptance-test
 endif
 endif
 
-example_debug_debug_SOURCES = example/debug/debug.cc
-example_debug_debug_LDADD = libcouchbase_debug.la
-
-debug_sizes_SOURCES = debug/sizes.c
-
 if BUILD_TOOLS
 CBC_LINKS = \
 			cbc-admin \
@@ -610,7 +574,6 @@ reformat:
                --unpad-paren \
                --align-pointer=name \
                --align-reference=name \
-               $(top_srcdir)/debug/*.cc \
                $(top_srcdir)/example/*/*.c \
                $(top_srcdir)/include/libcouchbase/*.[ch] \
                $(top_srcdir)/plugins/io/*/*.[ch] \
