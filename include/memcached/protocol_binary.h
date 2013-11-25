@@ -84,6 +84,7 @@ extern "C"
         PROTOCOL_BINARY_RESPONSE_AUTH_ERROR = 0x20,
         PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE = 0x21,
         PROTOCOL_BINARY_RESPONSE_ERANGE = 0x22,
+        PROTOCOL_BINARY_RESPONSE_ROLLBACK = 0x23,
         PROTOCOL_BINARY_RESPONSE_UNKNOWN_COMMAND = 0x81,
         PROTOCOL_BINARY_RESPONSE_ENOMEM = 0x82,
         PROTOCOL_BINARY_RESPONSE_NOT_SUPPORTED = 0x83,
@@ -128,6 +129,7 @@ extern "C"
         PROTOCOL_BINARY_CMD_TOUCH = 0x1c,
         PROTOCOL_BINARY_CMD_GAT = 0x1d,
         PROTOCOL_BINARY_CMD_GATQ = 0x1e,
+        PROTOCOL_BINARY_CMD_HELLO = 0x1f,
 
         PROTOCOL_BINARY_CMD_SASL_LIST_MECHS = 0x20,
         PROTOCOL_BINARY_CMD_SASL_AUTH = 0x21,
@@ -169,31 +171,60 @@ extern "C"
         PROTOCOL_BINARY_CMD_TAP_CHECKPOINT_END = 0x47,
         /* End TAP */
 
+        /* UPR */
+        PROTOCOL_BINARY_CMD_UPR_OPEN = 0x50,
+        PROTOCOL_BINARY_CMD_UPR_ADD_STREAM = 0x51,
+        PROTOCOL_BINARY_CMD_UPR_CLOSE_STREAM = 0x52,
+        PROTOCOL_BINARY_CMD_UPR_STREAM_REQ = 0x53,
+        PROTOCOL_BINARY_CMD_UPR_GET_FAILOVER_LOG = 0x54,
+        PROTOCOL_BINARY_CMD_UPR_STREAM_END = 0x55,
+        PROTOCOL_BINARY_CMD_UPR_SNAPSHOT_MARKER = 0x56,
+        PROTOCOL_BINARY_CMD_UPR_MUTATION = 0x57,
+        PROTOCOL_BINARY_CMD_UPR_DELETION = 0x58,
+        PROTOCOL_BINARY_CMD_UPR_EXPIRATION = 0x59,
+        PROTOCOL_BINARY_CMD_UPR_FLUSH = 0x5a,
+        PROTOCOL_BINARY_CMD_UPR_SET_VBUCKET_STATE = 0x5b,
+        PROTOCOL_BINARY_CMD_UPR_RESERVED1 = 0x5c,
+        PROTOCOL_BINARY_CMD_UPR_RESERVED2 = 0x5d,
+        PROTOCOL_BINARY_CMD_UPR_RESERVED3 = 0x5e,
+        PROTOCOL_BINARY_CMD_UPR_RESERVED4 = 0x5f,
+        /* End UPR */
+
         PROTOCOL_BINARY_CMD_LAST_RESERVED = 0x8f,
 
         /* Scrub the data */
         PROTOCOL_BINARY_CMD_SCRUB = 0xf0,
         /* Refresh the ISASL data */
-        PROTOCOL_BINARY_CMD_ISASL_REFRESH = 0xf1
+        PROTOCOL_BINARY_CMD_ISASL_REFRESH = 0xf1,
+        /* Refresh the SSL certificates */
+        PROTOCOL_BINARY_CMD_SSL_CERTS_REFRESH = 0xf2
     } protocol_binary_command;
 
     /**
      * Definition of the data types in the packet
      * See section 3.4 Data Types
-     * If you specify a value != 0 you should interpret the byte
-     * as a "bitmask".
-     *   .... ...0 = Format: raw bytes
-     *   .... .00. = Compression: none
-     *   0000 0... = Reserved
      */
     typedef enum {
-        PROTOCOL_BINARY_RAW_BYTES = 0x00
-#define PROTOCOL_BINARY_DATATYPE_JSON 0x01
-#define PROTOCOL_BINARY_DATATYPE_GZIP 0x02
-#define PROTOCOL_BINARY_DATATYPE_BZIP 0x04
-#define PROTOCOL_BINARY_DATATYPE_LZO  0x06
+        PROTOCOL_BINARY_RAW_BYTES = 0x00,
+        PROTOCOL_BINARY_DATATYPE_JSON = 0x01,
+        /* Compressed == snappy compression */
+        PROTOCOL_BINARY_DATATYPE_COMPRESSED = 0x02,
+        /* Compressed == snappy compression */
+        PROTOCOL_BINARY_DATATYPE_COMPRESSED_JSON = 0x03
     } protocol_binary_datatypes;
 
+    /**
+     * Definitions for extended (flexible) metadata
+     *
+     * @1: Flex Code to identify the number of extended metadata fields
+     * @2: Size of the Flex Code, set to 1 byte
+     * @3: Current size of extended metadata
+     */
+    typedef enum {
+        FLEX_META_CODE = 0x01,
+        FLEX_DATA_OFFSET = 1,
+        EXT_META_LEN = 1
+    } protocol_binary_flexmeta;
 
     /**
      * Definition of the header structure for a request packet.
@@ -745,11 +776,207 @@ extern "C"
         uint8_t bytes[sizeof(protocol_binary_response_header) + sizeof(vbucket_state_t)];
     } protocol_binary_response_get_vbucket;
 
+    /**
+     * Definition of hello's features.
+     */
+    typedef enum {
+        PROTOCOL_BINARY_FEATURE_DATATYPE = 0x01,
+        PROTOCOL_BINARY_FEATURE_TLS = 0x2
+    } protocol_binary_hello_features;
+
+    #define MEMCACHED_FIRST_HELLO_FEATURE 0x01
+    #define MEMCACHED_TOTAL_HELLO_FEATURES 0x02
+
+#define protocol_feature_2_text(a) \
+    (a == PROTOCOL_BINARY_FEATURE_DATATYPE) ? "Datatype" : \
+    (a == PROTOCOL_BINARY_FEATURE_TLS) ? "TLS" : "Unknown"
+
+    /**
+     * The HELLO command is used by the client and the server to agree
+     * upon the set of features the other end supports. It is initiated
+     * by the client by sending its agent string and the list of features
+     * it would like to use. The server will then reply with the list
+     * of the requested features it supports.
+     *
+     * ex:
+     * Client ->  HELLO [myclient 2.0] datatype, tls
+     * Server ->  HELLO SUCCESS datatype
+     *
+     * In this example the server responds that it allows the client to
+     * use the datatype extension, but not the tls extension.
+     */
+
+
+    /**
+     * Definition of the packet requested by hello cmd.
+     * Key: This is a client-specific identifier (not really used by
+     *      the server, except for logging the HELLO and may therefore
+     *      be used to identify the client at a later time)
+     * Body: Contains all features supported by client. Each feature is
+     *       specified as an uint16_t in network byte order.
+     */
+    typedef protocol_binary_request_no_extras protocol_binary_request_hello;
+
+
+    /**
+     * Definition of the packet returned by hello cmd.
+     * Body: Contains all features requested by the client that the
+     *       server agrees to ssupport. Each feature is
+     *       specified as an uint16_t in network byte order.
+     */
+    typedef protocol_binary_response_no_extras protocol_binary_response_hello;
+
+    /* UPR related stuff */
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint32_t seqno;
+                /*
+                 * The following flags are defined
+                 */
+#define UPR_OPEN_PRODUCER 1
+                uint32_t flags;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 8];
+    } protocol_binary_request_upr_open;
+
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_open;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                /*
+                 * The following flags are defined
+                 */
+#define UPR_ADD_STREAM_FLAG_TAKEOVER 1
+#define UPR_ADD_STREAM_FLAG_DISKONLY 2
+                uint32_t flags;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 4];
+    } protocol_binary_request_upr_add_stream;
+
+    typedef union {
+        struct {
+            protocol_binary_response_header header;
+            struct {
+                uint32_t opaque;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_response_header) + 4];
+    } protocol_binary_response_upr_add_stream;
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_upr_close_stream;
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_close_stream;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint32_t flags;
+                uint32_t reserved;
+                uint64_t start_seqno;
+                uint64_t end_seqno;
+                uint64_t vbucket_uuid;
+                uint64_t high_seqno;
+            } body;
+            /* Group ID is specified in the key */
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 40];
+    } protocol_binary_request_upr_stream_req;
+
+    typedef union {
+        struct {
+            protocol_binary_response_header header;
+        } message;
+        /*
+        ** In case of PROTOCOL_BINARY_RESPONSE_ROLLBACK the body contains
+        ** the rollback sequence number (uint64_t)
+        */
+        uint8_t bytes[sizeof(protocol_binary_request_header)];
+    } protocol_binary_response_upr_stream_req;
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_upr_get_failover_log;
+
+    /* The body of the message contains UUID/SEQNO pairs */
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_get_failover_log;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                /**
+                 * All flags set to 0 == OK,
+                 * 1: state changed
+                 */
+                uint32_t flags;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 4];
+    } protocol_binary_request_upr_stream_end;
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_stream_end;
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_upr_snapshot_marker;
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_snapshot_marker;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint64_t by_seqno;
+                uint64_t rev_seqno;
+                uint32_t flags;
+                uint32_t expiration;
+                uint32_t lock_time;
+                uint16_t nmeta;
+                uint8_t nru;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 31];
+    } protocol_binary_request_upr_mutation;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                uint64_t by_seqno;
+                uint64_t rev_seqno;
+                uint16_t nmeta;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 18];
+    } protocol_binary_request_upr_deletion;
+
+    typedef protocol_binary_request_upr_deletion protocol_binary_request_upr_expiration;
+    typedef protocol_binary_request_no_extras protocol_binary_request_upr_flush;
+
+    typedef union {
+        struct {
+            protocol_binary_request_header header;
+            struct {
+                /**
+                 * 0x01 - Active
+                 * 0x02 - Pending
+                 * 0x03 - Replica
+                 * 0x04 - Dead
+                 */
+                uint8_t state;
+            } body;
+        } message;
+        uint8_t bytes[sizeof(protocol_binary_request_header) + 1];
+    } protocol_binary_request_upr_set_vbucket_state;
+    typedef protocol_binary_response_no_extras protocol_binary_response_upr_set_vbucket_state;
+
+
+    typedef protocol_binary_request_no_extras protocol_binary_request_ssl_refresh;
+    typedef protocol_binary_response_no_extras protocol_binary_response_ssl_refresh;
 
     /**
      * @}
      */
-
 #ifdef __cplusplus
 }
 #endif
