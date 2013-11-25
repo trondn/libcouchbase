@@ -96,12 +96,15 @@ AC_DEFUN([COUCHBASE_GENERIC_COMPILER], [
   SPRO_CXX_COMPILER_WARNINGS="+w +w2"
   SPRO_LDFLAGS="-mt"
 
+  AC_CHECK_DECL([__clang__], [CLANG="yes"], [CLANG="no"])
   AC_CHECK_DECL([__SUNPRO_C], [SUNCC="yes"], [SUNCC="no"])
   AC_CHECK_DECL([__GNUC__], [GCC="yes"], [GCC="no"])
 
+  AS_IF([test "x$CLANG" = "xyes"], [CLANG_UNUSED="-Qunused-arguments"])
+
   AS_IF([test "x$GCC" = "xyes"],
       [
-        AM_CPPFLAGS="$AM_CPPFLAGS $GCC_CPPFLAGS"
+        AM_CPPFLAGS="$AM_CPPFLAGS $GCC_CPPFLAGS $CLANG_UNUSED"
         AM_CFLAGS="$AM_CPPFLAGS $GCC_CFLAGS"
         AM_CXXFLAGS="$AM_CPPFLAGS $GCC_CXXFLAGS"
         AS_IF(test "$C_LANGUAGE_SPEC" = c89,
