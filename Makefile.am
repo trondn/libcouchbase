@@ -585,4 +585,3 @@ reformat:
 regenerate-manpage:
 	$(top_srcdir)/man/generate.sh
 
-sinclude packaging/*/package.mk
