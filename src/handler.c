@@ -323,8 +323,8 @@ int lcb_lookup_server_with_command(lcb_t instance,
             }
 
             if (nr == sizeof(cmd) &&
-                    cmd.request.opcode == opcode &&
-                    cmd.request.opaque == opaque) {
+                cmd.request.opcode == opcode &&
+                cmd.request.opaque == opaque) {
                 return (int)ii;
             }
         }
@@ -600,8 +600,8 @@ static void observe_response_handler(lcb_server_t *server,
 
     /* run callback with null-null-null to signal the end of transfer */
     if ((command_data->flags & LCB_CMD_F_OBS_BCAST) &&
-            lcb_lookup_server_with_command(root, CMD_OBSERVE,
-                                           res->response.opaque, server) < 0) {
+        lcb_lookup_server_with_command(root, CMD_OBSERVE,
+                                       res->response.opaque, server) < 0) {
 
         lcb_observe_resp_t resp;
         memset(&resp, 0, sizeof(resp));
@@ -847,7 +847,7 @@ static void sasl_list_mech_response_handler(lcb_server_t *server,
     }
 
     if (cbsasl_client_start(server->sasl_conn, mechlist,
-                          NULL, &data, &ndata, &chosenmech) != SASL_OK) {
+                            NULL, &data, &ndata, &chosenmech) != SASL_OK) {
         free(mechlist);
         lcb_error_handler(server->instance, LCB_AUTH_ERROR,
                           "Unable to start sasl client");
@@ -1513,11 +1513,23 @@ lcb_errmap_callback lcb_set_errmap_callback(lcb_t instance,
 
 LIBCOUCHBASE_API
 lcb_evict_callback lcb_set_evict_callback(lcb_t instance,
-                                                    lcb_evict_callback cb)
+                                          lcb_evict_callback cb)
 {
     lcb_evict_callback ret = instance->callbacks.evict;
     if (cb != NULL) {
         instance->callbacks.evict = cb;
+    }
+    return ret;
+}
+
+
+LIBCOUCHBASE_API
+lcb_packet_fwd_callback lcb_set_packet_fwd_callback(lcb_t instance,
+                                                    lcb_packet_fwd_callback cb)
+{
+    lcb_packet_fwd_callback ret = instance->callbacks.packet_fwd;
+    if (cb != NULL) {
+        instance->callbacks.packet_fwd = cb;
     }
     return ret;
 }

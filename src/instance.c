@@ -312,6 +312,8 @@ lcb_error_t lcb_create(lcb_t *instance,
     if ((obj = calloc(1, sizeof(*obj))) == NULL) {
         return LCB_CLIENT_ENOMEM;
     }
+
+    obj->allocator = lcb_get_default_allocator();
     obj->type = type;
     obj->compat.type = (lcb_compat_t)0xdead;
 

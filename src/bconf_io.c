@@ -363,7 +363,7 @@ static void config_v0_handler(lcb_socket_t sock, short which, void *arg)
         return;
     }
 
-    status = lcb_sockrw_v0_slurp(conn, conn->input);
+    status = lcb_sockrw_v0_slurp(conn);
     if (status != LCB_SOCKRW_READ && status != LCB_SOCKRW_WOULDBLOCK) {
         connection_error(instance, LCB_NETWORK_ERROR,
                          "Problem with reading data. "
@@ -388,7 +388,8 @@ static void config_v1_read_handler(lcb_sockdata_t *sockptr, lcb_ssize_t nr)
         return;
     }
 
-    lcb_sockrw_v1_onread_common(sockptr, &instance->connection.input, nr);
+    abort();
+    /* lcb_sockrw_v1_onread_common(sockptr, &instance->connection.input, nr); */
 
     if (nr < 1) {
         v1_error_common(instance);

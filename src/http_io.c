@@ -39,7 +39,7 @@ static void request_v0_handler(lcb_socket_t sock, short which, void *arg)
     if (which & LCB_READ_EVENT) {
         lcb_sockrw_status_t status;
 
-        status = lcb_sockrw_v0_slurp(&req->connection, req->connection.input);
+        status = lcb_sockrw_v0_slurp(&req->connection);
         if (status != LCB_SOCKRW_READ &&
                 status != LCB_SOCKRW_WOULDBLOCK &&
                 status != LCB_SOCKRW_SHUTDOWN) {
@@ -134,7 +134,10 @@ static void request_v1_read_handler(lcb_sockdata_t *sock, lcb_ssize_t nr)
         return;
     }
 
+    abort();
+#if 0
     lcb_sockrw_v1_onread_common(sock, &req->connection.input, nr);
+#endif
 
     if (nr < 1) {
         lcb_http_request_finish(req->instance, req, LCB_NETWORK_ERROR);
@@ -166,7 +169,12 @@ static void request_v1_write_handler(lcb_sockdata_t *sock,
         return;
     }
 
+
+    abort();
+#if 0
     lcb_sockrw_v1_onwrite_common(sock, wbuf, &req->connection.input);
+#endif
+
 
     if (status) {
         lcb_http_request_finish(req->instance, req, LCB_NETWORK_ERROR);

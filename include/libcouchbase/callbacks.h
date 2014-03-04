@@ -272,6 +272,23 @@ extern "C" {
                                         lcb_error_t err,
                                         const lcb_observe_resp_t *resp);
 
+
+    /**
+     * The int return value should be 0 if the callback didn't try to
+     * preserve buffer, and 1 if it increased the refcount. THis is a
+     * "premature" optimization to let libcouchbase skip grabbing the
+     * locks just to see if the buffer was locked by the callback
+     *
+     * The err parameter is LCB_SUCCESS as long as resp points to a valid
+     * packet. If we don't have enough context you'd get another err
+     * passed (the cookie should be correct for the request)
+     */
+    typedef int (*lcb_packet_fwd_callback)(lcb_t instance,
+                                           const void *cookie,
+                                           lcb_error_t err,
+                                           const lcb_packet_fwd_resp_t *resp);
+
+
     /**
      * Callback for error mappings. This will be invoked when requesting whether
      * the user has a possible mapping for this error code.
@@ -348,6 +365,11 @@ extern "C" {
 
     LIBCOUCHBASE_API
     lcb_evict_callback lcb_set_evict_callback(lcb_t, lcb_evict_callback);
+
+    LIBCOUCHBASE_API
+    lcb_packet_fwd_callback lcb_set_packet_fwd_callback(lcb_t,
+                                                        lcb_packet_fwd_callback);
+
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,6 @@
 /* -*- Mode: C; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 /*
- *     Copyright 2010-2012 Couchbase, Inc.
+ *     Copyright 2010-2014 Couchbase, Inc.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   you may not use this file except in compliance with the License.
@@ -26,8 +26,10 @@
 #ifndef LIBCOUCHBASE_TYPES_H
 #define LIBCOUCHBASE_TYPES_H 1
 
-#ifndef LIBCOUCHBASE_COUCHBASE_H
-#error "Include libcouchbase/couchbase.h instead"
+#ifdef WIN32
+#include <windows.h>
+#else
+#include <pthread.h>
 #endif
 
 #ifdef __cplusplus
@@ -510,6 +512,71 @@ extern "C" {
         LCB_IPV6_ONLY = 0x1,
         LCB_IPV6_ALLOW = 0x02
     } lcb_ipv6_t;
+
+#ifdef __cplusplus
+}
+#endif
+
+#include <libcouchbase/ringbuffer.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifdef WIN32
+    typedef CRITICAL_SECTION lcb_mutex_t;
+#else
+    typedef pthread_mutex_t lcb_mutex_t;
+#endif
+
+    typedef struct lcb_bufmgmt_st lcb_bufmgmt_t;
+    typedef struct lcb_buffer_st lcb_buffer_t;
+
+    struct lcb_bufmgmt_st {
+        /**
+         * Destructor function to release all resources.
+         * Using the bufinfo structure after calling the destructor results
+         * in undefined behavior. The lock should NOT be held when calling
+         * the destructor.
+         *
+         * @param buf the buffer to release
+         */
+        void (*destructor)(lcb_buffer_t *);
+
+        /**
+         * Buffer allocator that owns the allocator (for use by the destructor)
+         */
+        void *allocator;
+
+        /**
+         * Allocator metadata (lock or other stuff).
+         */
+        lcb_mutex_t mutex;
+
+        /**
+         * The reference counter (must only be used with the lock to ensure
+         * thread safety
+         */
+        int refcount;
+    };
+
+    struct lcb_buffer_st {
+        /** Buffer management data */
+        lcb_bufmgmt_t management;
+        /**
+         * The actual data in the IO buffer. This _MAY_ be multple
+         * packets, and it is only the actual _OWNER_ of the buffer
+         * who owns the access to the buffer. The function called may
+         * add a "lock" to the potion of the buffer it is using to
+         * save the data for later use (to avoid memcpy).
+         */
+        lcb_ringbuffer_t ringbuffer;
+    };
+
+    typedef struct lcb_packet_buf_st {
+        lcb_buffer_t *bufinfo; /* The buffer owning the data */
+        lcb_iovec_t iov[2]; /* The IO vector containing the data */
+    } lcb_packet_buf_t;
 
 #ifdef __cplusplus
 }

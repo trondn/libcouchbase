@@ -36,7 +36,7 @@ static int do_read_data(lcb_server_t *c, int allow_read)
     hrtime_t stop = gethrtime();
 
     if (allow_read) {
-        status = lcb_sockrw_v0_slurp(&c->connection, c->connection.input);
+        status = lcb_sockrw_v0_slurp(&c->connection);
 
     } else {
         status = LCB_SOCKRW_WOULDBLOCK;
@@ -103,7 +103,7 @@ void lcb_server_v0_event_handler(lcb_socket_t sock, short which, void *arg)
         }
     }
 
-    if (which & LCB_READ_EVENT || conn->input->nbytes) {
+    if (which & LCB_READ_EVENT || conn->input.buffer->ringbuffer.nbytes) {
         if (do_read_data(c, which & LCB_READ_EVENT) != 0) {
             /* TODO stash error message somewhere
              * "Failed to read from connection to \"%s:%s\"", c->hostname, c->port */
@@ -118,7 +118,7 @@ void lcb_server_v0_event_handler(lcb_socket_t sock, short which, void *arg)
      * non-blocking read if we don't expect any data, but we can usually rely
      * on a non-blocking write.
      */
-    if (conn->output->nbytes || conn->input->nbytes) {
+    if (conn->output->nbytes || conn->input.buffer->ringbuffer.nbytes) {
         which = LCB_RW_EVENT;
     } else {
         which = LCB_READ_EVENT;
@@ -149,8 +149,14 @@ void lcb_server_v1_read_handler(lcb_sockdata_t *sockptr, lcb_ssize_t nr)
         return;
     }
 
-    lcb_sockrw_v1_onread_common(sockptr, &c->connection.input, nr);
+    fprintf(stderr, "NOT IMPLEMENTE\n");
+    fflush(stderr);
 
+
+    abort();
+#if 0
+    lcb_sockrw_v1_onread_common(sockptr, &c->connection.input, nr);
+#endif
     c->inside_handler = 1;
 
     if (nr < 1) {
@@ -214,7 +220,7 @@ int lcb_server_has_pending(lcb_server_t *server)
     lcb_connection_t conn = &server->connection;
 
     if ((conn->output && conn->output->nbytes) ||
-            (conn->input && conn->input->nbytes)) {
+            (conn->input.buffer && conn->input.buffer->ringbuffer.nbytes)) {
         return 1;
     }
 

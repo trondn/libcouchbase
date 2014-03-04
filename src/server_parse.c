@@ -118,7 +118,8 @@ static int handle_not_my_vbucket(lcb_server_t *c,
     return 1;
 }
 
-int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
+static int lcb_parse_single_with_specialized_callbacks(lcb_server_t *c,
+                                                       hrtime_t stop)
 {
     protocol_binary_request_header req;
     protocol_binary_response_header header;
@@ -128,19 +129,20 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
     struct lcb_command_data_st ct;
     lcb_connection_t conn = &c->connection;
 
-    if (lcb_ringbuffer_ensure_alignment(conn->input) != 0) {
+    if (lcb_ringbuffer_ensure_alignment(&conn->input.buffer->ringbuffer) != 0) {
         lcb_error_handler(c->instance, LCB_EINTERNAL,
                           NULL);
         return -1;
     }
 
-    nr = lcb_ringbuffer_peek(conn->input, header.bytes, sizeof(header));
+    nr = lcb_ringbuffer_peek(&conn->input.buffer->ringbuffer,
+                             header.bytes, sizeof(header));
     if (nr < sizeof(header)) {
         return 0;
     }
 
     packetsize = ntohl(header.response.bodylen) + (lcb_uint32_t)sizeof(header);
-    if (conn->input->nbytes < packetsize) {
+    if (conn->input.buffer->ringbuffer.nbytes < packetsize) {
         return 0;
     }
 
@@ -150,15 +152,15 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
             (header.response.opaque < req.request.opaque &&
              header.response.opaque > 0)) { /* sasl comes with zero opaque */
         /* already processed. */
-        lcb_ringbuffer_consumed(conn->input, packetsize);
+        lcb_ringbuffer_consumed(&conn->input.buffer->ringbuffer, packetsize);
         return 1;
     }
 
-    packet = conn->input->read_head;
+    packet = conn->input.buffer->ringbuffer.read_head;
     /* we have everything! */
 
-    if (!lcb_ringbuffer_is_continous(conn->input, LCB_RINGBUFFER_READ,
-                                     packetsize)) {
+    if (!lcb_ringbuffer_is_continous(&conn->input.buffer->ringbuffer,
+                                     LCB_RINGBUFFER_READ, packetsize)) {
         /* The buffer isn't continous.. for now just copy it out and
         ** operate on the copy ;)
         */
@@ -166,7 +168,7 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
             lcb_error_handler(c->instance, LCB_CLIENT_ENOMEM, NULL);
             return -1;
         }
-        nr = lcb_ringbuffer_read(conn->input, packet, packetsize);
+        nr = lcb_ringbuffer_read(&conn->input.buffer->ringbuffer, packet, packetsize);
         if (nr != packetsize) {
             lcb_error_handler(c->instance, LCB_EINTERNAL,
                               NULL);
@@ -179,7 +181,7 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
     if (nr != sizeof(ct)) {
         lcb_error_handler(c->instance, LCB_EINTERNAL,
                           NULL);
-        if (packet != conn->input->read_head) {
+        if (packet != conn->input.buffer->ringbuffer.read_head) {
             free(packet);
         }
         return -1;
@@ -198,7 +200,7 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
     case PROTOCOL_BINARY_RES: {
         int was_connected = c->connection_ready;
         if (lcb_server_purge_implicit_responses(c, header.response.opaque, stop, 0) != 0) {
-            if (packet != conn->input->read_head) {
+            if (packet != conn->input.buffer->ringbuffer.read_head) {
                 free(packet);
             }
             return -1;
@@ -248,16 +250,151 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
         lcb_error_handler(c->instance,
                           LCB_PROTOCOL_ERROR,
                           NULL);
-        if (packet != conn->input->read_head) {
+        if (packet != conn->input.buffer->ringbuffer.read_head) {
             free(packet);
         }
         return -1;
     }
 
-    if (packet != conn->input->read_head) {
+    if (packet != conn->input.buffer->ringbuffer.read_head) {
         free(packet);
     } else {
-        lcb_ringbuffer_consumed(conn->input, packetsize);
+        lcb_ringbuffer_consumed(&conn->input.buffer->ringbuffer, packetsize);
     }
     return 1;
+}
+
+static int lcb_parse_single_with_packet_forward(lcb_server_t *c,
+                                                hrtime_t stop)
+{
+    protocol_binary_request_header req;
+    protocol_binary_response_header header;
+    lcb_size_t nr;
+    lcb_size_t avail;
+    int was_connected = c->connection_ready;
+    uint16_t status;
+    lcb_size_t packetsize;
+    struct lcb_command_data_st ct;
+    lcb_connection_t conn = &c->connection;
+    lcb_t instance = c->instance;
+
+    /* Check if we have the entire packet */
+    nr = lcb_ringbuffer_peek(&conn->input.buffer->ringbuffer,
+                             header.bytes, sizeof(header));
+    if (nr < sizeof(header)) {
+        return 0;
+    }
+
+    packetsize = ntohl(header.response.bodylen) + (lcb_uint32_t)sizeof(header);
+    avail = lcb_ringbuffer_get_nbytes(&conn->input.buffer->ringbuffer);
+
+    if (avail < packetsize) {
+        /* We need more data! */
+        return 0;
+    }
+
+    /* Is it already timed out? */
+    nr = lcb_ringbuffer_peek(&c->cmd_log, req.bytes, sizeof(req));
+    if (nr < sizeof(req) || /* the command log doesn't know about it */
+            (header.response.opaque < req.request.opaque &&
+             header.response.opaque > 0)) { /* sasl comes with zero opaque */
+        /* already processed. */
+        lcb_ringbuffer_consumed(&conn->input.buffer->ringbuffer, packetsize);
+        return 1;
+    }
+
+    /* We've got the entire packet!! */
+    assert(header.response.magic == PROTOCOL_BINARY_RES);
+
+    nr = lcb_ringbuffer_peek(&c->output_cookies, &ct, sizeof(ct));
+    if (nr != sizeof(ct)) {
+        lcb_error_handler(c->instance, LCB_EINTERNAL, NULL);
+        return -1;
+    }
+    ct.vbucket = ntohs(req.request.vbucket);
+
+    if (lcb_server_purge_implicit_responses(c, header.response.opaque, stop, 0)) {
+        return -1;
+    }
+
+    if (c->instance->histogram) {
+        lcb_record_metrics(c->instance, stop - ct.start,
+                           header.response.opcode);
+    }
+
+    status = ntohs(header.response.status);
+    if (status != PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET ||
+        header.response.opcode == CMD_GET_REPLICA ||
+        header.response.opcode == CMD_OBSERVE) {
+        /* Prepare the callback data */
+        lcb_packet_fwd_resp_t resp;
+        lcb_error_t err = LCB_SUCCESS;
+        resp.version = 0;
+        resp.v.v0.buffer = conn->input.buffer;
+        lcb_ringbuffer_get_iov(&resp.v.v0.buffer->ringbuffer,
+                               LCB_RINGBUFFER_READ,
+                               resp.v.v0.iov);
+        /* The IOV should only contain the exact bits for the packet */
+        if (resp.v.v0.iov[0].iov_len > packetsize) {
+            resp.v.v0.iov[0].iov_len = packetsize;
+            resp.v.v0.iov[1].iov_len = 0;
+        } else {
+            resp.v.v0.iov[1].iov_len = packetsize - resp.v.v0.iov[0].iov_len;
+        }
+
+        /* fire the callback */
+        conn->input.locked |= instance->callbacks.packet_fwd(instance,
+                                                             ct.cookie,
+                                                             err,
+                                                             &resp);
+        lcb_ringbuffer_consumed(&conn->input.buffer->ringbuffer, packetsize);
+
+        /* keep command and cookie until we get complete STAT response */
+        swallow_command(c, &header, was_connected);
+
+    } else {
+        int rv = handle_not_my_vbucket(c, &req, &ct);
+        if (rv == -1) {
+            return -1;
+        } else if (rv == 0) {
+            /* Prepare the callback data */
+            lcb_packet_fwd_resp_t resp;
+            lcb_error_t err = LCB_SUCCESS;
+            resp.version = 0;
+            resp.v.v0.buffer = conn->input.buffer;
+            lcb_ringbuffer_get_iov(&resp.v.v0.buffer->ringbuffer,
+                                   LCB_RINGBUFFER_READ,
+                                   resp.v.v0.iov);
+
+            /* The IOV should only contain the exact bits for the packet */
+            if (resp.v.v0.iov[0].iov_len > packetsize) {
+                resp.v.v0.iov[0].iov_len = packetsize;
+                resp.v.v0.iov[1].iov_len = 0;
+            } else {
+                resp.v.v0.iov[1].iov_len = packetsize - resp.v.v0.iov[0].iov_len;
+            }
+
+            /* fire the callback */
+            conn->input.locked |= instance->callbacks.packet_fwd(instance,
+                                                                 ct.cookie,
+                                                                 err,
+                                                                 &resp);
+            lcb_ringbuffer_consumed(&conn->input.buffer->ringbuffer, packetsize);
+
+            /* keep command and cookie until we get complete STAT response */
+            swallow_command(c, &header, was_connected);
+        }
+
+    }
+
+    return 1;
+}
+
+int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
+{
+    if (c->instance->callbacks.packet_fwd) {
+        return lcb_parse_single_with_packet_forward(c, stop);
+    } else {
+        return lcb_parse_single_with_specialized_callbacks(c, stop);
+    }
 }

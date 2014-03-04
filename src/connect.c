@@ -420,8 +420,10 @@ void lcb_connection_close(lcb_connection_t conn)
         }
     }
 
-    if (conn->input) {
-        lcb_ringbuffer_reset(conn->input);
+    if (conn->input.buffer) {
+        conn->input.buffer->management.destructor(conn->input.buffer);
+        conn->input.locked = 0;
+        conn->input.buffer = NULL;
     }
 
     if (conn->output) {
@@ -478,10 +480,10 @@ void lcb_connection_cleanup(lcb_connection_t conn)
         conn->ai = NULL;
     }
 
-    if (conn->input) {
-        lcb_ringbuffer_destruct(conn->input);
-        free(conn->input);
-        conn->input = NULL;
+    if (conn->input.buffer) {
+        conn->input.buffer->management.destructor(conn->input.buffer);
+        conn->input.locked = 0;
+        conn->input.buffer = NULL;
     }
 
     if (conn->output) {
@@ -560,9 +562,13 @@ static lcb_error_t reset_buffer(lcb_ringbuffer_t **rb, lcb_size_t defsz)
 
 lcb_error_t lcb_connection_reset_buffers(lcb_connection_t conn)
 {
-    if (reset_buffer(&conn->input, conn->instance->rbufsize) != LCB_SUCCESS) {
-        return LCB_CLIENT_ENOMEM;
+    if (conn->input.buffer) {
+        conn->input.buffer->management.destructor(conn->input.buffer);
     }
+    conn->input.locked = 0;
+    conn->input.buffer = NULL;
+    conn->input.buffer = conn->instance->allocator->allocate(conn->instance->allocator, conn->instance->rbufsize);
+
     if (reset_buffer(&conn->output, conn->instance->wbufsize) != LCB_SUCCESS) {
         return LCB_CLIENT_ENOMEM;
     }
@@ -578,7 +584,7 @@ lcb_error_t lcb_connection_init(lcb_connection_t conn, lcb_t instance)
     conn->state = LCB_CONNSTATE_UNINIT;
     conn->timeout.timer = instance->io->v.v0.create_timer(instance->io);
 
-    if (LCB_SUCCESS != lcb_connection_reset_buffers(conn)) {
+    if (lcb_connection_reset_buffers(conn) != LCB_SUCCESS) {
         lcb_connection_cleanup(conn);
         return LCB_CLIENT_ENOMEM;
     }

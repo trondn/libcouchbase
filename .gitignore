@@ -48,6 +48,7 @@
 /example/db/db
 /example/db/vb
 /example/debug/debug
+/example/forward/packetfwd
 /example/instancepool/instancepool
 /example/libeventdirect/eventloop
 /example/mcc/mcc

@@ -818,6 +818,29 @@ extern "C" {
 
 #define LCB_ST_M 28
 
+    typedef struct lcb_packet_fwd_cmd_st {
+        int version;
+        union {
+            struct {
+                int to_master;
+                int replica_index;
+                lcb_packet_buf_t buffer;
+            } v0;
+        } v;
+    } lcb_packet_fwd_cmd_t;
+
+    typedef struct lcb_packet_fwd_resp_st {
+        int version;
+        union {
+            struct {
+                /* only if you need to refcount it */
+                lcb_buffer_t *buffer;
+                /* The IO vector containint the response */
+                lcb_iovec_t iov[2];
+            } v0;
+        } v;
+    } lcb_packet_fwd_resp_t;
+
 #ifdef __cplusplus
 }
 #endif

@@ -67,6 +67,8 @@
 #include <libcouchbase/callbacks.h>
 #include <libcouchbase/timings.h>
 #include <libcouchbase/cntl.h>
+#include <libcouchbase/locks.h>
+#include <libcouchbase/allocator.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -405,6 +407,43 @@ extern "C" {
                           const lcb_evict_cmd_t *const *commands);
 
 
+    /**
+     * lcb_forward_packet may be used to inject a preformatted packet
+     * into the stream to the "correct" couchbase node by looking at the
+     * vbucket identifier specified inside the packet. The command structure
+     * allows you to specify the master node or any given replica.
+     *
+     * Example:
+     *
+     *    lcb_allocator_t *allocator = lcb_get_default_allocator();
+     *    lcb_buffer_t *buffer = allocator->allocate(allocator, 4096);
+     *    lcb_error_t err;
+     *    lcb_packet_fwd_cmd_t cmd;
+     *    lcb_packet_fwd_cmd_t *cmds[1];
+     *
+     *    memset(&cmd0, 0, sizeof(cmd));
+     *    cmds[0] = &cmd;
+     *
+     *    cmd0.v.v0.to_master = 1;
+     *    cmd0.v.v0.buffer.bufinfo = buffer;
+     *
+     *    ... Add the formatted packet into the buffer ...
+     *
+     *    err = lcb_forward_packet(instance, NULL, 1,
+     *                             (const lcb_packet_fwd_cmd_t *const *)cmds);
+     *
+     * @param instance the instance used to batch the requests from
+     * @param command_cookie A cookie passed to all of the notifications
+     *                       from this command
+     * @param num the total number of elements in the commands array
+     * @param commands the array containing the packets to send
+     * @return The status of the operation
+     */
+    LIBCOUCHBASE_API
+    lcb_error_t lcb_forward_packet(lcb_t instance,
+                                   const void *command_cookie,
+                                   lcb_size_t num,
+                                   const lcb_packet_fwd_cmd_t *const *commands);
 
     /**
      * Store an item in the cluster.
@@ -928,7 +967,6 @@ extern "C" {
     /** Use this to free memory allocated with lcb_mem_alloc */
     LIBCOUCHBASE_API
     void lcb_mem_free(void *ptr);
-
 
 #ifdef __cplusplus
 }

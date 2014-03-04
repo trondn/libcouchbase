@@ -180,9 +180,11 @@ extern "C" {
         lcb_exists_callback exists;
         lcb_errmap_callback errmap;
         lcb_evict_callback evict;
+        lcb_packet_fwd_callback packet_fwd;
     };
 
     struct lcb_st {
+        lcb_allocator_t *allocator;
         /**
          * the type of the connection:
          * * LCB_TYPE_BUCKET

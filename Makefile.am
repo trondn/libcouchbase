@@ -73,6 +73,7 @@ pkginclude_HEADERS = \
                      include/libcouchbase/durability.h \
                      include/libcouchbase/error.h \
                      include/libcouchbase/http.h \
+                     include/libcouchbase/locks.h \
                      include/libcouchbase/ringbuffer.h \
                      include/libcouchbase/sanitycheck.h \
                      include/libcouchbase/timings.h \
@@ -133,67 +134,26 @@ libcrc32_la_CFLAGS = $(AM_NOWARN_CFLAGS)
 libcrc32_la_CPPFLAGS = $(AM_NOWARN_CPPFLAGS)
 
 libcouchbase_la_SOURCES = \
-                        include/ep-engine/command_ids.h \
-                        include/memcached/protocol_binary.h \
-                        include/memcached/vbucket.h \
-                        plugins/io/select/plugin-select.c \
-                        plugins/io/select/select_io_opts.h \
-                        src/arithmetic.c \
-                        src/base64.c \
-                        src/bconf_io.c \
-                        src/bconf_parse.c \
-                        src/bconf_provider.c \
-                        src/cntl.c \
-                        src/compat.c \
-                        src/config_cache.c \
-                        src/config_static.h \
-                        src/connect.c \
-                        src/cookie.c \
-                        src/durability.c \
-                        src/durability_internal.h \
-                        src/error.c \
-                        src/evict.c \
-                        src/flush.c \
-                        src/genhash.c \
-                        src/genhash.h \
-                        src/get.c \
-                        src/gethrtime.c \
-                        src/handler.c \
-                        src/handler.h \
-                        src/hashset.c \
-                        src/hashset.h \
-                        src/hashtable.c \
-                        src/http.c \
-                        src/http_io.c \
-                        src/http_parse.c \
-                        src/instance.c \
-                        src/internal.h \
-                        src/lcbio.h \
-                        src/list.c \
-                        src/list.h \
-                        src/observe.c \
-                        src/packet.c \
-                        src/readwrite.c \
-                        src/remove.c \
-                        src/ringbuffer.c \
-                        src/sanitycheck.c \
-                        src/server.c \
-                        src/server_connect.c \
-                        src/server_io.c \
-                        src/server_parse.c \
-                        src/stats.c \
-                        src/store.c \
-                        src/strerror.c \
-                        src/synchandler.c \
-                        src/timer.c \
-                        src/timings.c \
-                        src/touch.c \
-                        src/trace.h \
-                        src/url_encoding.c \
-                        src/url_encoding.h \
-                        src/utilities.c \
-                        src/verbosity.c \
-                        src/wait.c
+      include/ep-engine/command_ids.h                                   \
+      include/memcached/protocol_binary.h                               \
+      include/memcached/vbucket.h plugins/io/select/plugin-select.c     \
+      plugins/io/select/select_io_opts.h src/arithmetic.c               \
+      src/base64.c src/bconf_io.c src/bconf_parse.c                     \
+      src/bconf_provider.c src/cntl.c src/compat.c src/config_cache.c   \
+      src/config_static.h src/connect.c src/cookie.c                    \
+      src/durability.c src/durability_internal.h src/error.c            \
+      src/evict.c src/flush.c src/forward.c src/genhash.c               \
+      src/genhash.h src/get.c src/gethrtime.c src/handler.c             \
+      src/handler.h src/hashset.c src/hashset.h src/hashtable.c         \
+      src/http.c src/http_io.c src/http_parse.c src/instance.c          \
+      src/internal.h src/iobuffer.c src/lcbio.h src/list.c src/list.h   \
+      src/locks.c src/observe.c src/packet.c src/readwrite.c            \
+      src/remove.c src/ringbuffer.c src/sanitycheck.c src/server.c      \
+      src/server_connect.c src/server_io.c src/server_parse.c           \
+      src/stats.c src/store.c src/strerror.c src/synchandler.c          \
+      src/timer.c src/timings.c src/touch.c src/trace.h                 \
+      src/url_encoding.c src/url_encoding.h src/utilities.c             \
+      src/verbosity.c src/wait.c
 
 libcouchbase_la_LDFLAGS= $(AM_LDFLAGS) -version-info $(API_CURRENT):$(API_REVISION):$(API_AGE) -no-undefined $(AM_PROFILE_SOLDFLAGS)
 libcouchbase_la_CPPFLAGS=$(AM_CPPFLAGS) $(CPPFLAGS) -DLIBCOUCHBASE_INTERNAL=1 -DLCB_LIBDIR="\"${libdir}\""
@@ -369,6 +329,10 @@ example_minimal_minimal_SOURCES = example/minimal/minimal.c
 example_minimal_minimal_DEPENDENCIES = libcouchbase.la
 example_minimal_minimal_LDADD = libcouchbase.la
 
+example_forward_packetfwd_SOURCES = example/forward/main.c
+example_forward_packetfwd_DEPENDENCIES = libcouchbase.la
+example_forward_packetfwd_LDADD = libcouchbase.la
+
 example_observe_observe_SOURCES = example/observe/observe.c
 example_observe_observe_DEPENDENCIES = libcouchbase.la
 example_observe_observe_LDADD = libcouchbase.la
@@ -402,13 +366,10 @@ endif
 # Example programs using the library
 #
 if BUILD_EXAMPLES
-noinst_PROGRAMS += \
-                   example/db/db \
-                   example/db/vb \
-                   example/instancepool/instancepool \
-                   example/minimal/minimal \
-                   example/observe/observe \
-                   example/syncmode/syncmode
+noinst_PROGRAMS += example/db/db example/db/vb                          \
+                   example/instancepool/instancepool                    \
+                   example/forward/packetfwd example/minimal/minimal    \
+                   example/observe/observe example/syncmode/syncmode
 if HAVE_LIBYAJL2
 noinst_PROGRAMS += example/yajl/couchview
 endif
@@ -583,4 +544,3 @@ reformat:
 
 regenerate-manpage:
 	$(top_srcdir)/man/generate.sh
-

@@ -84,7 +84,10 @@ extern "C" {
         struct addrinfo *ai;
         struct addrinfo *curr_ai;
 
-        lcb_ringbuffer_t *input;
+        struct {
+            int locked;
+            lcb_buffer_t *buffer;
+        } input;
         lcb_ringbuffer_t *output;
 
         /** instance */
@@ -221,10 +224,10 @@ extern "C" {
 
 
     /* Read a bit of data */
-    lcb_sockrw_status_t lcb_sockrw_v0_read(lcb_connection_t conn, lcb_ringbuffer_t *buf);
+    lcb_sockrw_status_t lcb_sockrw_v0_read(lcb_connection_t conn);
 
     /* Exhaust the data until there is nothing to read */
-    lcb_sockrw_status_t lcb_sockrw_v0_slurp(lcb_connection_t conn, lcb_ringbuffer_t *buf);
+    lcb_sockrw_status_t lcb_sockrw_v0_slurp(lcb_connection_t conn);
 
     /* Write as much data from the write buffer until blocked */
     lcb_sockrw_status_t lcb_sockrw_v0_write(lcb_connection_t conn, lcb_ringbuffer_t *buf);

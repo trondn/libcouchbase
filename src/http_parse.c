@@ -128,7 +128,7 @@ static int http_parser_complete_cb(http_parser *p)
                 lcb_error_handler(req->instance, LCB_CLIENT_ENOMEM, NULL);
                 return -1;
             }
-            np = lcb_ringbuffer_peek(req->connection.input, bytes, nbytes);
+            np = lcb_ringbuffer_peek(&req->connection.input.buffer->ringbuffer, bytes, nbytes);
             if (np != nbytes) {
                 lcb_error_handler(req->instance, LCB_EINTERNAL, NULL);
                 free(bytes);
@@ -166,7 +166,7 @@ int lcb_http_request_do_parse(lcb_http_request_t req)
 {
     lcb_size_t nbytes, nb = 0, np = 0;
     char *bytes;
-    lcb_ringbuffer_t *input = req->connection.input;
+    lcb_ringbuffer_t *input = &req->connection.input.buffer->ringbuffer;
 
     if (req->status != LCB_HTREQ_S_ONGOING) {
         return 0;

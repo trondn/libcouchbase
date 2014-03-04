@@ -221,7 +221,7 @@ lcb_error_t lcb_parse_vbucket_stream(lcb_t instance)
     lcb_error_t status = LCB_ERROR;
     lcb_connection_t conn = &instance->connection;
 
-    if (!grow_buffer(buffer, conn->input->nbytes + 1)) {
+    if (!grow_buffer(buffer, conn->input.buffer->ringbuffer.nbytes + 1)) {
         return LCB_ENOMEM;
     }
 
@@ -230,7 +230,7 @@ lcb_error_t lcb_parse_vbucket_stream(lcb_t instance)
      * TODO: Refactor this code to use lcb_ringbuffer directly, so we don't need
      * to copy
      */
-    expected = conn->input->nbytes;
+    expected = conn->input.buffer->ringbuffer.nbytes;
     lcb_assert(buffer->data);
 
     /**
@@ -240,7 +240,7 @@ lcb_error_t lcb_parse_vbucket_stream(lcb_t instance)
      * that 'size' is the allocated length, and 'avail' is the length of the
      * contents within the buffer
      */
-    nw = lcb_ringbuffer_read(conn->input,
+    nw = lcb_ringbuffer_read(&conn->input.buffer->ringbuffer,
                              buffer->data + buffer->avail,
                              buffer->size - buffer->avail);
 
