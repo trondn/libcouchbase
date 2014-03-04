@@ -35,7 +35,6 @@
 #include "cbsasl/cbsasl.h"
 
 #include "http_parser/http_parser.h"
-#include "ringbuffer.h"
 #include "list.h"
 #include "url_encoding.h"
 #include "hashset.h"
@@ -304,10 +303,10 @@ extern "C" {
         int bummer;
 
         /**
-         * Cached ringbuffer objects for 'purge_implicit_responses'
+         * Cached lcb_ringbuffer objects for 'purge_implicit_responses'
          */
-        ringbuffer_t purged_buf;
-        ringbuffer_t purged_cookies;
+        lcb_ringbuffer_t purged_buf;
+        lcb_ringbuffer_t purged_cookies;
 
         char *sasl_mech_force;
     };
@@ -328,14 +327,14 @@ extern "C" {
         char *rest_api_server;
         /** The sent buffer for this server so that we can resend the
          * command to another server if the bucket is moved... */
-        ringbuffer_t cmd_log;
-        ringbuffer_t output_cookies;
+        lcb_ringbuffer_t cmd_log;
+        lcb_ringbuffer_t output_cookies;
         /**
          * The pending buffer where we write data until we're in a
          * connected state;
          */
-        ringbuffer_t pending;
-        ringbuffer_t pending_cookies;
+        lcb_ringbuffer_t pending;
+        lcb_ringbuffer_t pending_cookies;
 
         /** The SASL object used for this server */
         cbsasl_conn_t *sasl_conn;
@@ -431,7 +430,7 @@ extern "C" {
         /** This callback will be executed for each chunk of the response */
         lcb_http_data_callback on_data;
         /** The accumulator for result (when chunked mode disabled) */
-        ringbuffer_t result;
+        lcb_ringbuffer_t result;
         /** The cookie belonging to this request */
         const void *command_cookie;
         /** Reference count */
@@ -484,30 +483,30 @@ extern "C" {
 
     void lcb_server_buffer_start_packet(lcb_server_t *c,
                                         const void *command_cookie,
-                                        ringbuffer_t *buff,
-                                        ringbuffer_t *buff_cookie,
+                                        lcb_ringbuffer_t *buff,
+                                        lcb_ringbuffer_t *buff_cookie,
                                         const void *data,
                                         lcb_size_t size);
 
     void lcb_server_buffer_retry_packet(lcb_server_t *c,
                                         struct lcb_command_data_st *ct,
-                                        ringbuffer_t *buff,
-                                        ringbuffer_t *buff_cookie,
+                                        lcb_ringbuffer_t *buff,
+                                        lcb_ringbuffer_t *buff_cookie,
                                         const void *data,
                                         lcb_size_t size);
 
     void lcb_server_buffer_write_packet(lcb_server_t *c,
-                                        ringbuffer_t *buff,
+                                        lcb_ringbuffer_t *buff,
                                         const void *data,
                                         lcb_size_t size);
 
     void lcb_server_buffer_end_packet(lcb_server_t *c,
-                                      ringbuffer_t *buff);
+                                      lcb_ringbuffer_t *buff);
 
     void lcb_server_buffer_complete_packet(lcb_server_t *c,
                                            const void *command_cookie,
-                                           ringbuffer_t *buff,
-                                           ringbuffer_t *buff_cookie,
+                                           lcb_ringbuffer_t *buff,
+                                           lcb_ringbuffer_t *buff_cookie,
                                            const void *data,
                                            lcb_size_t size);
 
@@ -515,8 +514,8 @@ extern "C" {
      * in caller */
     void lcb_server_buffer_start_packet_ex(lcb_server_t *c,
                                            struct lcb_command_data_st *ct,
-                                           ringbuffer_t *buff,
-                                           ringbuffer_t *buff_cookie,
+                                           lcb_ringbuffer_t *buff,
+                                           lcb_ringbuffer_t *buff_cookie,
                                            const void *data,
                                            lcb_size_t size);
 

@@ -226,8 +226,8 @@ lcb_error_t lcb_parse_vbucket_stream(lcb_t instance)
     }
 
     /**
-     * Read any data from the ringbuffer into our 'buffer_t' structure.
-     * TODO: Refactor this code to use ringbuffer directly, so we don't need
+     * Read any data from the lcb_ringbuffer into our 'buffer_t' structure.
+     * TODO: Refactor this code to use lcb_ringbuffer directly, so we don't need
      * to copy
      */
     expected = conn->input->nbytes;
@@ -240,9 +240,9 @@ lcb_error_t lcb_parse_vbucket_stream(lcb_t instance)
      * that 'size' is the allocated length, and 'avail' is the length of the
      * contents within the buffer
      */
-    nw = ringbuffer_read(conn->input,
-                         buffer->data + buffer->avail,
-                         buffer->size - buffer->avail);
+    nw = lcb_ringbuffer_read(conn->input,
+                             buffer->data + buffer->avail,
+                             buffer->size - buffer->avail);
 
     lcb_assert(nw == expected);
     buffer->avail += nw;

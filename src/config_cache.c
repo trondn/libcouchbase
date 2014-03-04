@@ -19,7 +19,7 @@
 
 int lcb_load_config_cache(lcb_t instance)
 {
-    ringbuffer_t buffer;
+    lcb_ringbuffer_t buffer;
     char line[1024];
     lcb_ssize_t nr;
     int fail;
@@ -42,7 +42,7 @@ int lcb_load_config_cache(lcb_t instance)
     }
 
     if ((config = vbucket_config_create()) == NULL ||
-            ringbuffer_initialize(&buffer, 2048) == -1) {
+            lcb_ringbuffer_initialize(&buffer, 2048) == -1) {
         /* You'll have to do full bootsrap ;-) */
         if (config != NULL) {
             vbucket_config_destroy(config);
@@ -52,16 +52,16 @@ int lcb_load_config_cache(lcb_t instance)
     }
 
     while ((nr = fread(line, 1, sizeof(line), fp)) > 0) {
-        if (ringbuffer_ensure_capacity(&buffer, (lcb_size_t)nr) == -1) {
-            ringbuffer_destruct(&buffer);
+        if (lcb_ringbuffer_ensure_capacity(&buffer, (lcb_size_t)nr) == -1) {
+            lcb_ringbuffer_destruct(&buffer);
             fclose(fp);
             return -1;
         }
-        ringbuffer_write(&buffer, line, (lcb_size_t)nr);
+        lcb_ringbuffer_write(&buffer, line, (lcb_size_t)nr);
     }
 
     if (ferror(fp)) {
-        ringbuffer_destruct(&buffer);
+        lcb_ringbuffer_destruct(&buffer);
         fclose(fp);
         return -1;
     }
@@ -69,13 +69,13 @@ int lcb_load_config_cache(lcb_t instance)
     fclose(fp);
 
     /* write the terminal NUL for strstr */
-    if (ringbuffer_ensure_capacity(&buffer, 1) == -1) {
-        ringbuffer_destruct(&buffer);
+    if (lcb_ringbuffer_ensure_capacity(&buffer, 1) == -1) {
+        lcb_ringbuffer_destruct(&buffer);
         return -1;
     }
-    ringbuffer_write(&buffer, "", 1);
+    lcb_ringbuffer_write(&buffer, "", 1);
 
-    end = strstr((char *)ringbuffer_get_read_head(&buffer),
+    end = strstr((char *)lcb_ringbuffer_get_read_head(&buffer),
                  LCB_CONFIG_CACHE_MAGIC);
     if (end == NULL) {
         /* This in an incomplete read */
@@ -84,8 +84,8 @@ int lcb_load_config_cache(lcb_t instance)
 
     *end = '\0';
     fail = vbucket_config_parse(config, LIBVBUCKET_SOURCE_MEMORY,
-                                (char *)ringbuffer_get_read_head(&buffer));
-    ringbuffer_destruct(&buffer);
+                                (char *)lcb_ringbuffer_get_read_head(&buffer));
+    lcb_ringbuffer_destruct(&buffer);
 
     if (!fail) {
         if (vbucket_config_get_distribution_type(config) !=

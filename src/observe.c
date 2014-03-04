@@ -21,7 +21,7 @@
 struct observe_st {
     int allocated;
     protocol_binary_request_no_extras packet;
-    ringbuffer_t body;
+    lcb_ringbuffer_t body;
     lcb_size_t nbody;
 };
 
@@ -34,7 +34,7 @@ static int init_request(struct observe_st *reqinfo)
 {
     memset(&reqinfo->packet, 0, sizeof(reqinfo->packet));
 
-    if (!ringbuffer_initialize(&reqinfo->body, 512)) {
+    if (!lcb_ringbuffer_initialize(&reqinfo->body, 512)) {
         return 0;
     }
     reqinfo->allocated = 1;
@@ -51,7 +51,7 @@ static void destroy_requests(struct observe_requests_st *reqs)
             continue;
         }
 
-        ringbuffer_destruct(&rr->body);
+        lcb_ringbuffer_destruct(&rr->body);
         rr->allocated = 0;
     }
     free(reqs->requests);
@@ -167,11 +167,11 @@ lcb_error_t lcb_observe_ex(lcb_t instance,
                 rr->packet.message.header.request.datatype = PROTOCOL_BINARY_RAW_BYTES;
                 rr->packet.message.header.request.opaque = opaque;
 
-                ringbuffer_ensure_capacity(&rr->body,
-                                           sizeof(vb) + sizeof(len) + nkey);
-                rr->nbody += ringbuffer_write(&rr->body, &vb, sizeof(vb));
-                rr->nbody += ringbuffer_write(&rr->body, &len, sizeof(len));
-                rr->nbody += ringbuffer_write(&rr->body, key, nkey);
+                lcb_ringbuffer_ensure_capacity(&rr->body,
+                                               sizeof(vb) + sizeof(len) + nkey);
+                rr->nbody += lcb_ringbuffer_write(&rr->body, &vb, sizeof(vb));
+                rr->nbody += lcb_ringbuffer_write(&rr->body, &len, sizeof(len));
+                rr->nbody += lcb_ringbuffer_write(&rr->body, key, nkey);
             }
         }
     }
@@ -191,18 +191,18 @@ lcb_error_t lcb_observe_ex(lcb_t instance,
         lcb_server_start_packet_ct(server, &ct, rr->packet.bytes,
                                    sizeof(rr->packet.bytes));
 
-        if (ringbuffer_is_continous(&rr->body, RINGBUFFER_READ, rr->nbody)) {
-            tmp = ringbuffer_get_read_head(&rr->body);
+        if (lcb_ringbuffer_is_continous(&rr->body, LCB_RINGBUFFER_READ, rr->nbody)) {
+            tmp = lcb_ringbuffer_get_read_head(&rr->body);
             TRACE_OBSERVE_BEGIN(&rr->packet, server->authority, tmp, rr->nbody);
             lcb_server_write_packet(server, tmp, rr->nbody);
         } else {
-            tmp = malloc(ringbuffer_get_nbytes(&rr->body));
+            tmp = malloc(lcb_ringbuffer_get_nbytes(&rr->body));
             if (!tmp) {
                 /* FIXME by this time some of requests might be scheduled */
                 destroy_requests(&reqs);
                 return lcb_synchandler_return(instance, LCB_CLIENT_ENOMEM);
             } else {
-                ringbuffer_read(&rr->body, tmp, rr->nbody);
+                lcb_ringbuffer_read(&rr->body, tmp, rr->nbody);
                 TRACE_OBSERVE_BEGIN(&rr->packet, server->authority, tmp, rr->nbody);
                 lcb_server_write_packet(server, tmp, rr->nbody);
             }

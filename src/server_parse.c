@@ -33,11 +33,11 @@ static void swallow_command(lcb_server_t *c,
     if (was_connected &&
             (header->response.opcode != PROTOCOL_BINARY_CMD_STAT ||
              header->response.keylen == 0)) {
-        nr = ringbuffer_read(&c->cmd_log, req.bytes, sizeof(req));
+        nr = lcb_ringbuffer_read(&c->cmd_log, req.bytes, sizeof(req));
         lcb_assert(nr == sizeof(req));
-        ringbuffer_consumed(&c->cmd_log, ntohl(req.request.bodylen));
-        ringbuffer_consumed(&c->output_cookies,
-                            sizeof(struct lcb_command_data_st));
+        lcb_ringbuffer_consumed(&c->cmd_log, ntohl(req.request.bodylen));
+        lcb_ringbuffer_consumed(&c->output_cookies,
+                                sizeof(struct lcb_command_data_st));
     }
 }
 
@@ -85,7 +85,7 @@ static int handle_not_my_vbucket(lcb_server_t *c,
     lcb_assert((lcb_size_t)idx < c->instance->nservers);
     new_srv = c->instance->servers + idx;
 
-    nr = ringbuffer_read(&c->cmd_log, req.bytes, sizeof(req));
+    nr = lcb_ringbuffer_read(&c->cmd_log, req.bytes, sizeof(req));
     lcb_assert(nr == sizeof(req));
 
     req.request.opaque = ++c->instance->seqno;
@@ -95,9 +95,9 @@ static int handle_not_my_vbucket(lcb_server_t *c,
         lcb_error_handler(c->instance, LCB_CLIENT_ENOMEM, NULL);
         return -1;
     }
-    nr = ringbuffer_read(&c->cmd_log, body, nbody);
+    nr = lcb_ringbuffer_read(&c->cmd_log, body, nbody);
     lcb_assert(nr == nbody);
-    nr = ringbuffer_read(&c->output_cookies, &ct, sizeof(ct));
+    nr = lcb_ringbuffer_read(&c->output_cookies, &ct, sizeof(ct));
     lcb_assert(nr == sizeof(ct));
 
     /* Preserve the cookie and reset timestamp for the command. This
@@ -128,13 +128,13 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
     struct lcb_command_data_st ct;
     lcb_connection_t conn = &c->connection;
 
-    if (ringbuffer_ensure_alignment(conn->input) != 0) {
+    if (lcb_ringbuffer_ensure_alignment(conn->input) != 0) {
         lcb_error_handler(c->instance, LCB_EINTERNAL,
                           NULL);
         return -1;
     }
 
-    nr = ringbuffer_peek(conn->input, header.bytes, sizeof(header));
+    nr = lcb_ringbuffer_peek(conn->input, header.bytes, sizeof(header));
     if (nr < sizeof(header)) {
         return 0;
     }
@@ -145,20 +145,20 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
     }
 
     /* Is it already timed out? */
-    nr = ringbuffer_peek(&c->cmd_log, req.bytes, sizeof(req));
+    nr = lcb_ringbuffer_peek(&c->cmd_log, req.bytes, sizeof(req));
     if (nr < sizeof(req) || /* the command log doesn't know about it */
             (header.response.opaque < req.request.opaque &&
              header.response.opaque > 0)) { /* sasl comes with zero opaque */
         /* already processed. */
-        ringbuffer_consumed(conn->input, packetsize);
+        lcb_ringbuffer_consumed(conn->input, packetsize);
         return 1;
     }
 
     packet = conn->input->read_head;
     /* we have everything! */
 
-    if (!ringbuffer_is_continous(conn->input, RINGBUFFER_READ,
-                                 packetsize)) {
+    if (!lcb_ringbuffer_is_continous(conn->input, LCB_RINGBUFFER_READ,
+                                     packetsize)) {
         /* The buffer isn't continous.. for now just copy it out and
         ** operate on the copy ;)
         */
@@ -166,7 +166,7 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
             lcb_error_handler(c->instance, LCB_CLIENT_ENOMEM, NULL);
             return -1;
         }
-        nr = ringbuffer_read(conn->input, packet, packetsize);
+        nr = lcb_ringbuffer_read(conn->input, packet, packetsize);
         if (nr != packetsize) {
             lcb_error_handler(c->instance, LCB_EINTERNAL,
                               NULL);
@@ -175,7 +175,7 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
         }
     }
 
-    nr = ringbuffer_peek(&c->output_cookies, &ct, sizeof(ct));
+    nr = lcb_ringbuffer_peek(&c->output_cookies, &ct, sizeof(ct));
     if (nr != sizeof(ct)) {
         lcb_error_handler(c->instance, LCB_EINTERNAL,
                           NULL);
@@ -257,7 +257,7 @@ int lcb_proto_parse_single(lcb_server_t *c, hrtime_t stop)
     if (packet != conn->input->read_head) {
         free(packet);
     } else {
-        ringbuffer_consumed(conn->input, packetsize);
+        lcb_ringbuffer_consumed(conn->input, packetsize);
     }
     return 1;
 }

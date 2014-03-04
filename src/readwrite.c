@@ -23,19 +23,19 @@
 
 #include "internal.h"
 
-lcb_sockrw_status_t lcb_sockrw_v0_read(lcb_connection_t conn, ringbuffer_t *buf)
+lcb_sockrw_status_t lcb_sockrw_v0_read(lcb_connection_t conn, lcb_ringbuffer_t *buf)
 {
     struct lcb_iovec_st iov[2];
     lcb_ssize_t nr;
 
-    if (!ringbuffer_ensure_capacity(buf,
-                                    conn->instance ? conn->instance->rbufsize :
-                                    LCB_DEFAULT_RBUFSIZE)) {
+    if (!lcb_ringbuffer_ensure_capacity(buf,
+                                        conn->instance ? conn->instance->rbufsize :
+                                        LCB_DEFAULT_RBUFSIZE)) {
         lcb_error_handler(conn->instance, LCB_CLIENT_ENOMEM, NULL);
         return LCB_SOCKRW_GENERIC_ERROR;
     }
 
-    ringbuffer_get_iov(buf, RINGBUFFER_WRITE, iov);
+    lcb_ringbuffer_get_iov(buf, LCB_RINGBUFFER_WRITE, iov);
 
     nr = conn->instance->io->v.v0.recvv(conn->instance->io, conn->sockfd, iov, 2);
     if (nr == -1) {
@@ -59,13 +59,13 @@ lcb_sockrw_status_t lcb_sockrw_v0_read(lcb_connection_t conn, ringbuffer_t *buf)
         return LCB_SOCKRW_SHUTDOWN;
 
     } else {
-        ringbuffer_produced(buf, (lcb_size_t)nr);
+        lcb_ringbuffer_produced(buf, (lcb_size_t)nr);
     }
 
     return LCB_SOCKRW_READ;
 }
 
-lcb_sockrw_status_t lcb_sockrw_v0_slurp(lcb_connection_t conn, ringbuffer_t *buf)
+lcb_sockrw_status_t lcb_sockrw_v0_slurp(lcb_connection_t conn, lcb_ringbuffer_t *buf)
 {
     lcb_sockrw_status_t status;
     while ((status = lcb_sockrw_v0_read(conn, buf)) == LCB_SOCKRW_READ) {
@@ -77,12 +77,12 @@ lcb_sockrw_status_t lcb_sockrw_v0_slurp(lcb_connection_t conn, ringbuffer_t *buf
 
 
 lcb_sockrw_status_t lcb_sockrw_v0_write(lcb_connection_t conn,
-                                        ringbuffer_t *buf)
+                                        lcb_ringbuffer_t *buf)
 {
     while (buf->nbytes > 0) {
         struct lcb_iovec_st iov[2];
         lcb_ssize_t nw;
-        ringbuffer_get_iov(buf, RINGBUFFER_READ, iov);
+        lcb_ringbuffer_get_iov(buf, LCB_RINGBUFFER_READ, iov);
         nw = conn->instance->io->v.v0.sendv(conn->instance->io, conn->sockfd, iov, 2);
         if (nw == -1) {
             switch (conn->instance->io->v.v0.error) {
@@ -99,7 +99,7 @@ lcb_sockrw_status_t lcb_sockrw_v0_write(lcb_connection_t conn,
                 return LCB_SOCKRW_IO_ERROR;
             }
         } else if (nw > 0) {
-            ringbuffer_consumed(buf, (lcb_size_t)nw);
+            lcb_ringbuffer_consumed(buf, (lcb_size_t)nw);
         }
     }
 
@@ -205,13 +205,13 @@ int lcb_sockrw_flushed(lcb_connection_t conn)
 /**
  * Request a read of data into the buffer
  * @param conn the connection object
- * @param buf a ringbuffer structure. If the read request is successful,
- * the ringbuffer is destroyed. Its allocated data is owned by the IO plugin
+ * @param buf a lcb_ringbuffer structure. If the read request is successful,
+ * the lcb_ringbuffer is destroyed. Its allocated data is owned by the IO plugin
  * for the duration of the operation. It may be restored via
- * ringbuffer_take_buffer once the operation has finished.
+ * lcb_ringbuffer_take_buffer once the operation has finished.
  */
 lcb_sockrw_status_t lcb_sockrw_v1_start_read(lcb_connection_t conn,
-                                             ringbuffer_t **buf,
+                                             lcb_ringbuffer_t **buf,
                                              lcb_io_read_cb callback,
                                              lcb_io_error_cb error_callback)
 {
@@ -223,10 +223,10 @@ lcb_sockrw_status_t lcb_sockrw_v1_start_read(lcb_connection_t conn,
         return LCB_SOCKRW_PENDING;
     }
 
-    ringbuffer_ensure_capacity(*buf,
-                               conn->instance ? conn->instance->rbufsize :
-                               LCB_DEFAULT_RBUFSIZE);
-    ringbuffer_get_iov(*buf, RINGBUFFER_WRITE, bi->iov);
+    lcb_ringbuffer_ensure_capacity(*buf,
+                                   conn->instance ? conn->instance->rbufsize :
+                                   LCB_DEFAULT_RBUFSIZE);
+    lcb_ringbuffer_get_iov(*buf, LCB_RINGBUFFER_WRITE, bi->iov);
 
     lcb_assert(bi->ringbuffer == NULL);
     lcb_assert(bi->root == NULL);
@@ -258,12 +258,12 @@ lcb_sockrw_status_t lcb_sockrw_v1_start_read(lcb_connection_t conn,
 /**
  * Request that a write begin.
  * @param conn the connection object
- * @param buf a pointer to a ringbuffer_t*. If the write request is successful,
+ * @param buf a pointer to a lcb_ringbuffer_t*. If the write request is successful,
  * the IO system takes exclusive ownership of the buffer, and the contents
  * of *buf are zeroed.
  */
 lcb_sockrw_status_t lcb_sockrw_v1_start_write(lcb_connection_t conn,
-                                              ringbuffer_t **buf,
+                                              lcb_ringbuffer_t **buf,
                                               lcb_io_write_cb callback,
                                               lcb_io_error_cb error_callback)
 {
@@ -285,7 +285,7 @@ lcb_sockrw_status_t lcb_sockrw_v1_start_write(lcb_connection_t conn,
     bi->root = bi->ringbuffer->root;
 
     *buf = NULL;
-    ringbuffer_get_iov(bi->ringbuffer, RINGBUFFER_READ, bi->iov);
+    lcb_ringbuffer_get_iov(bi->ringbuffer, LCB_RINGBUFFER_READ, bi->iov);
 
     ret = io->v.v1.start_write(io, conn->sockptr, wbuf, callback);
     if (ret == 0) {
@@ -305,7 +305,7 @@ lcb_sockrw_status_t lcb_sockrw_v1_start_write(lcb_connection_t conn,
 }
 
 void lcb_sockrw_v1_onread_common(lcb_sockdata_t *sock,
-                                 ringbuffer_t **dst,
+                                 lcb_ringbuffer_t **dst,
                                  lcb_ssize_t nr)
 {
     struct lcb_buf_info *bi = &sock->read_buffer;
@@ -318,14 +318,14 @@ void lcb_sockrw_v1_onread_common(lcb_sockdata_t *sock,
     sock->is_reading = 0;
 
     if (nr > 0) {
-        ringbuffer_produced(*dst, nr);
+        lcb_ringbuffer_produced(*dst, nr);
     }
 
 }
 
 void lcb_sockrw_v1_onwrite_common(lcb_sockdata_t *sock,
                                   lcb_io_writebuf_t *wbuf,
-                                  ringbuffer_t **dst)
+                                  lcb_ringbuffer_t **dst)
 {
     struct lcb_buf_info *bi = &wbuf->buffer;
     lcb_io_opt_t io = sock->parent;
@@ -340,7 +340,7 @@ void lcb_sockrw_v1_onwrite_common(lcb_sockdata_t *sock,
     }
 
     *dst = bi->ringbuffer;
-    ringbuffer_reset(*dst);
+    lcb_ringbuffer_reset(*dst);
 
     bi->ringbuffer = NULL;
     bi->root = NULL;

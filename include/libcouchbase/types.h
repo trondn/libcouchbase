@@ -223,7 +223,7 @@ extern "C" {
         void (*run_event_loop)(struct lcb_io_opt_st *iops);
     };
 
-    struct ringbuffer_st;
+    struct lcb_ringbuffer_st;
 
     struct lcb_buf_info {
         /**
@@ -237,13 +237,13 @@ extern "C" {
         lcb_size_t size;
 
         /**
-         * Ringbuffer structure used by lcb internally. Its contents are not
+         * Lcb_Ringbuffer structure used by lcb internally. Its contents are not
          * public, but it will be freed by the IOPS plugin when the containing
          * structure is destroyed as well.
          *
          * Should be freed using lcb_mem_free
          */
-        struct ringbuffer_st *ringbuffer;
+        struct lcb_ringbuffer_st *ringbuffer;
 
         /**
          * A pair of iov structures. This is always mapped to the 'root'

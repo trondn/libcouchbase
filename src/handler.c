@@ -253,8 +253,8 @@ static const char *get_key(lcb_server_t *server, lcb_uint16_t *nkey,
                            char **packet)
 {
     protocol_binary_request_header req;
-    lcb_size_t nr = ringbuffer_peek(&server->cmd_log,
-                                    req.bytes, sizeof(req));
+    lcb_size_t nr = lcb_ringbuffer_peek(&server->cmd_log,
+                                        req.bytes, sizeof(req));
     lcb_size_t packetsize = ntohl(req.request.bodylen) + (lcb_uint32_t)sizeof(req);
     char *keyptr;
     *packet = server->cmd_log.read_head;
@@ -264,9 +264,9 @@ static const char *get_key(lcb_server_t *server, lcb_uint16_t *nkey,
     keyptr = *packet + sizeof(req) + req.request.extlen;
     *packet = NULL;
 
-    if (!ringbuffer_is_continous(&server->cmd_log,
-                                 RINGBUFFER_READ,
-                                 packetsize)) {
+    if (!lcb_ringbuffer_is_continous(&server->cmd_log,
+                                     LCB_RINGBUFFER_READ,
+                                     packetsize)) {
         *packet = malloc(packetsize);
         if (*packet == NULL) {
             lcb_error_handler(server->instance, LCB_CLIENT_ENOMEM,
@@ -274,7 +274,7 @@ static const char *get_key(lcb_server_t *server, lcb_uint16_t *nkey,
             return NULL;
         }
 
-        nr = ringbuffer_peek(&server->cmd_log, *packet, packetsize);
+        nr = lcb_ringbuffer_peek(&server->cmd_log, *packet, packetsize);
         if (nr != packetsize) {
             lcb_error_handler(server->instance, LCB_EINTERNAL,
                               NULL);
@@ -311,10 +311,10 @@ int lcb_lookup_server_with_command(lcb_t instance,
         server = instance->servers + ii;
         if (server != exc) {
             lcb_size_t offset = 0;
-            while ((nr = ringbuffer_peek_at(&server->cmd_log,
-                                            offset,
-                                            cmd.bytes,
-                                            sizeof(cmd))) == sizeof(cmd)) {
+            while ((nr = lcb_ringbuffer_peek_at(&server->cmd_log,
+                                                offset,
+                                                cmd.bytes,
+                                                sizeof(cmd))) == sizeof(cmd)) {
                 if (cmd.request.opaque >= opaque) {
                     break;
                 }
@@ -528,7 +528,7 @@ static void observe_response_handler(lcb_server_t *server,
         protocol_binary_request_header req;
         lcb_size_t nr;
 
-        nr = ringbuffer_peek(&server->cmd_log, req.bytes, sizeof(req.bytes));
+        nr = lcb_ringbuffer_peek(&server->cmd_log, req.bytes, sizeof(req.bytes));
         if (nr != sizeof(req.bytes)) {
             lcb_error_handler(server->instance, LCB_EINTERNAL, NULL);
             abort();
@@ -538,13 +538,13 @@ static void observe_response_handler(lcb_server_t *server,
             char *packet = server->cmd_log.read_head;
             int allocated = 0;
 
-            if (!ringbuffer_is_continous(&server->cmd_log, RINGBUFFER_READ, npacket)) {
+            if (!lcb_ringbuffer_is_continous(&server->cmd_log, LCB_RINGBUFFER_READ, npacket)) {
                 packet = malloc(npacket);
                 if (packet == NULL) {
                     lcb_error_handler(root, LCB_CLIENT_ENOMEM, NULL);
                     abort();
                 }
-                nr = ringbuffer_peek(&server->cmd_log, packet, npacket);
+                nr = lcb_ringbuffer_peek(&server->cmd_log, packet, npacket);
                 if (nr != npacket) {
                     lcb_error_handler(root, LCB_EINTERNAL, NULL);
                     free(packet);

@@ -266,13 +266,13 @@ static void purge_single_server(lcb_server_t *server, lcb_error_t error,
     lcb_size_t packetsize;
     char *keyptr;
     lcb_t root = server->instance;
-    ringbuffer_t rest;
-    ringbuffer_t *stream = &server->cmd_log;
-    ringbuffer_t *cookies;
-    ringbuffer_t *mirror = NULL; /* mirror buffer should be purged with main stream */
+    lcb_ringbuffer_t rest;
+    lcb_ringbuffer_t *stream = &server->cmd_log;
+    lcb_ringbuffer_t *cookies;
+    lcb_ringbuffer_t *mirror = NULL; /* mirror buffer should be purged with main stream */
     lcb_connection_t conn = &server->connection;
     lcb_size_t send_size = 0;
-    lcb_size_t stream_size = ringbuffer_get_nbytes(stream);
+    lcb_size_t stream_size = lcb_ringbuffer_get_nbytes(stream);
     hrtime_t now = gethrtime();
     int should_refresh_config = 0;
 
@@ -285,10 +285,10 @@ static void purge_single_server(lcb_server_t *server, lcb_error_t error,
 
     if (conn->output) {
         /* This will usually be false for v1 */
-        send_size = ringbuffer_get_nbytes(conn->output);
+        send_size = lcb_ringbuffer_get_nbytes(conn->output);
     }
 
-    lcb_assert(ringbuffer_initialize(&rest, 1024));
+    lcb_assert(lcb_ringbuffer_initialize(&rest, 1024));
 
 
     do {
@@ -296,11 +296,11 @@ static void purge_single_server(lcb_server_t *server, lcb_error_t error,
         lcb_uint32_t headersize;
         lcb_uint16_t nkey;
 
-        nr = ringbuffer_peek(cookies, &ct, sizeof(ct));
+        nr = lcb_ringbuffer_peek(cookies, &ct, sizeof(ct));
         if (nr != sizeof(ct)) {
             break;
         }
-        nr = ringbuffer_peek(stream, req.bytes, sizeof(req));
+        nr = lcb_ringbuffer_peek(stream, req.bytes, sizeof(req));
         if (nr != sizeof(req)) {
             break;
         }
@@ -312,7 +312,7 @@ static void purge_single_server(lcb_server_t *server, lcb_error_t error,
             break;
         }
 
-        ringbuffer_consumed(cookies, sizeof(ct));
+        lcb_ringbuffer_consumed(cookies, sizeof(ct));
 
         lcb_assert(nr == sizeof(req));
         packet = stream->read_head;
@@ -329,22 +329,22 @@ static void purge_single_server(lcb_server_t *server, lcb_error_t error,
 
             /* I do believe I have some IOV functions to do that? */
             lcb_size_t nbytes = packetsize - (stream_size - send_size);
-            lcb_assert(ringbuffer_memcpy(&rest,
-                                         conn->output,
-                                         nbytes) == 0);
-            ringbuffer_consumed(conn->output, nbytes);
+            lcb_assert(lcb_ringbuffer_memcpy(&rest,
+                                             conn->output,
+                                             nbytes) == 0);
+            lcb_ringbuffer_consumed(conn->output, nbytes);
             send_size -= nbytes;
         }
         stream_size -= packetsize;
         headersize = (lcb_uint32_t)sizeof(req) + req.request.extlen + htons(req.request.keylen);
-        if (!ringbuffer_is_continous(stream, RINGBUFFER_READ, headersize)) {
+        if (!lcb_ringbuffer_is_continous(stream, LCB_RINGBUFFER_READ, headersize)) {
             packet = malloc(headersize);
             if (packet == NULL) {
                 lcb_error_handler(server->instance, LCB_CLIENT_ENOMEM, NULL);
                 abort();
             }
 
-            nr = ringbuffer_peek(stream, packet, headersize);
+            nr = lcb_ringbuffer_peek(stream, packet, headersize);
             if (nr != headersize) {
                 lcb_error_handler(server->instance, LCB_EINTERNAL, NULL);
                 free(packet);
@@ -361,9 +361,9 @@ static void purge_single_server(lcb_server_t *server, lcb_error_t error,
         if (allocated) {
             free(packet);
         }
-        ringbuffer_consumed(stream, packetsize);
+        lcb_ringbuffer_consumed(stream, packetsize);
         if (mirror) {
-            ringbuffer_consumed(mirror, packetsize);
+            lcb_ringbuffer_consumed(mirror, packetsize);
         }
         if (server->is_config_node) {
             root->weird_things++;
@@ -375,18 +375,18 @@ static void purge_single_server(lcb_server_t *server, lcb_error_t error,
 
     if (server->connection_ready && conn->output) {
         /* Preserve the rest of the stream */
-        lcb_size_t nbytes = ringbuffer_get_nbytes(stream);
-        send_size = ringbuffer_get_nbytes(conn->output);
+        lcb_size_t nbytes = lcb_ringbuffer_get_nbytes(stream);
+        send_size = lcb_ringbuffer_get_nbytes(conn->output);
 
         if (send_size >= nbytes) {
-            ringbuffer_consumed(conn->output, send_size - nbytes);
-            lcb_assert(ringbuffer_memcpy(&rest, conn->output, nbytes) == 0);
+            lcb_ringbuffer_consumed(conn->output, send_size - nbytes);
+            lcb_assert(lcb_ringbuffer_memcpy(&rest, conn->output, nbytes) == 0);
         }
-        ringbuffer_reset(conn->output);
-        ringbuffer_append(&rest, conn->output);
+        lcb_ringbuffer_reset(conn->output);
+        lcb_ringbuffer_append(&rest, conn->output);
     }
 
-    ringbuffer_destruct(&rest);
+    lcb_ringbuffer_destruct(&rest);
     if (should_refresh_config) {
         lcb_instance_config_error(root, LCB_NETWORK_ERROR,
                                   "Config connection considered stale. "
@@ -405,10 +405,10 @@ lcb_error_t lcb_failout_server(lcb_server_t *server,
                                lcb_error_t error)
 {
     lcb_purge_single_server(server, error);
-    ringbuffer_reset(&server->cmd_log);
-    ringbuffer_reset(&server->output_cookies);
-    ringbuffer_reset(&server->pending);
-    ringbuffer_reset(&server->pending_cookies);
+    lcb_ringbuffer_reset(&server->cmd_log);
+    lcb_ringbuffer_reset(&server->output_cookies);
+    lcb_ringbuffer_reset(&server->pending);
+    lcb_ringbuffer_reset(&server->pending_cookies);
 
     server->connection_ready = 0;
     lcb_connection_close(&server->connection);
@@ -469,10 +469,10 @@ void lcb_server_destroy(lcb_server_t *server)
     free(server->rest_api_server);
     free(server->couch_api_base);
     free(server->authority);
-    ringbuffer_destruct(&server->output_cookies);
-    ringbuffer_destruct(&server->cmd_log);
-    ringbuffer_destruct(&server->pending);
-    ringbuffer_destruct(&server->pending_cookies);
+    lcb_ringbuffer_destruct(&server->output_cookies);
+    lcb_ringbuffer_destruct(&server->cmd_log);
+    lcb_ringbuffer_destruct(&server->pending);
+    lcb_ringbuffer_destruct(&server->pending_cookies);
     memset(server, 0xff, sizeof(*server));
 }
 
@@ -491,26 +491,26 @@ void lcb_server_connected(lcb_server_t *server)
     if (server->pending.nbytes > 0) {
         /*
         ** @todo we might want to do this a bit more optimal later on..
-        **       We're only using the pending ringbuffer while we're
+        **       We're only using the pending lcb_ringbuffer while we're
         **       doing the SASL auth, so it shouldn't contain that
         **       much data..
         */
-        ringbuffer_t copy = server->pending;
-        ringbuffer_reset(&server->cmd_log);
-        ringbuffer_reset(&server->output_cookies);
-        ringbuffer_reset(conn->output);
-        if (!ringbuffer_append(&server->pending, conn->output) ||
-                !ringbuffer_append(&server->pending_cookies, &server->output_cookies) ||
-                !ringbuffer_append(&copy, &server->cmd_log)) {
-            ringbuffer_reset(&server->cmd_log);
-            ringbuffer_reset(&server->output_cookies);
+        lcb_ringbuffer_t copy = server->pending;
+        lcb_ringbuffer_reset(&server->cmd_log);
+        lcb_ringbuffer_reset(&server->output_cookies);
+        lcb_ringbuffer_reset(conn->output);
+        if (!lcb_ringbuffer_append(&server->pending, conn->output) ||
+                !lcb_ringbuffer_append(&server->pending_cookies, &server->output_cookies) ||
+                !lcb_ringbuffer_append(&copy, &server->cmd_log)) {
+            lcb_ringbuffer_reset(&server->cmd_log);
+            lcb_ringbuffer_reset(&server->output_cookies);
             lcb_connection_cleanup(conn);
             lcb_error_handler(server->instance, LCB_CLIENT_ENOMEM, NULL);
             return;
         }
 
-        ringbuffer_reset(&server->pending);
-        ringbuffer_reset(&server->pending_cookies);
+        lcb_ringbuffer_reset(&server->pending);
+        lcb_ringbuffer_reset(&server->pending_cookies);
         lcb_assert(conn->output->nbytes);
         lcb_server_send_packets(server);
     }
@@ -584,9 +584,9 @@ int lcb_server_purge_implicit_responses(lcb_server_t *c,
     protocol_binary_request_header req;
 
     /** Instance level allocated buffers */
-    ringbuffer_t *cmdlog, *cookies;
+    lcb_ringbuffer_t *cmdlog, *cookies;
 
-    lcb_size_t nr = ringbuffer_peek(&c->cmd_log, req.bytes, sizeof(req));
+    lcb_size_t nr = lcb_ringbuffer_peek(&c->cmd_log, req.bytes, sizeof(req));
 
     /* There should at _LEAST_ be _ONE_ message in here if we're not
      * trying to purge _ALL_ of the messages in the queue
@@ -600,7 +600,7 @@ int lcb_server_purge_implicit_responses(lcb_server_t *c,
      * Reading the command log is not re-entrant safe, as an additional
      * command to the same server may result in the command log being modified.
      * To this end, we must first buffer all the commands in a separate
-     * ringbuffer (or simple buffer) for that matter, and only *then*
+     * lcb_ringbuffer (or simple buffer) for that matter, and only *then*
      * invoke the callbacks
      */
     lcb_assert(nr == sizeof(req));
@@ -611,8 +611,8 @@ int lcb_server_purge_implicit_responses(lcb_server_t *c,
 
     cmdlog = &c->instance->purged_buf;
     cookies = &c->instance->purged_cookies;
-    ringbuffer_reset(cmdlog);
-    ringbuffer_reset(cookies);
+    lcb_ringbuffer_reset(cmdlog);
+    lcb_ringbuffer_reset(cookies);
 
     /**
      * Move all the commands we want to purge into the relevant ("local") buffers.
@@ -621,14 +621,14 @@ int lcb_server_purge_implicit_responses(lcb_server_t *c,
     while (req.request.opaque < seqno) {
         lcb_size_t packetsize = ntohl(req.request.bodylen) + (lcb_uint32_t)sizeof(req);
 
-        ringbuffer_memcpy(cmdlog, &c->cmd_log, packetsize);
-        ringbuffer_consumed(&c->cmd_log, packetsize);
+        lcb_ringbuffer_memcpy(cmdlog, &c->cmd_log, packetsize);
+        lcb_ringbuffer_consumed(&c->cmd_log, packetsize);
 
 
-        ringbuffer_memcpy(cookies, &c->output_cookies, sizeof(struct lcb_command_data_st));
-        ringbuffer_consumed(&c->output_cookies, sizeof(struct lcb_command_data_st));
+        lcb_ringbuffer_memcpy(cookies, &c->output_cookies, sizeof(struct lcb_command_data_st));
+        lcb_ringbuffer_consumed(&c->output_cookies, sizeof(struct lcb_command_data_st));
 
-        nr = ringbuffer_peek(&c->cmd_log, req.bytes, sizeof(req.bytes));
+        nr = lcb_ringbuffer_peek(&c->cmd_log, req.bytes, sizeof(req.bytes));
 
         if (!nr) {
             break;
@@ -637,7 +637,7 @@ int lcb_server_purge_implicit_responses(lcb_server_t *c,
         lcb_assert(nr == sizeof(req));
     }
 
-    nr = ringbuffer_peek(cmdlog, req.bytes, sizeof(req));
+    nr = lcb_ringbuffer_peek(cmdlog, req.bytes, sizeof(req));
     lcb_assert(nr == sizeof(req));
 
     if (!all) {
@@ -660,21 +660,21 @@ int lcb_server_purge_implicit_responses(lcb_server_t *c,
             lcb_observe_resp_t observe;
         } resp;
 
-        nr = ringbuffer_read(cookies, &ct, sizeof(ct));
+        nr = lcb_ringbuffer_read(cookies, &ct, sizeof(ct));
         lcb_assert(nr == sizeof(ct));
 
         if (c->instance->histogram) {
             lcb_record_metrics(c->instance, end - ct.start, req.request.opcode);
         }
 
-        if (!ringbuffer_is_continous(cmdlog, RINGBUFFER_READ, packetsize)) {
+        if (!lcb_ringbuffer_is_continous(cmdlog, LCB_RINGBUFFER_READ, packetsize)) {
             packet = malloc(packetsize);
             if (packet == NULL) {
                 lcb_error_handler(c->instance, LCB_CLIENT_ENOMEM, NULL);
                 return -1;
             }
 
-            nr = ringbuffer_peek(cmdlog, packet, packetsize);
+            nr = lcb_ringbuffer_peek(cmdlog, packet, packetsize);
             if (nr != packetsize) {
                 lcb_error_handler(c->instance, LCB_EINTERNAL, NULL);
                 free(packet);
@@ -711,8 +711,8 @@ int lcb_server_purge_implicit_responses(lcb_server_t *c,
             free(packet);
         }
 
-        ringbuffer_consumed(cmdlog, packetsize);
-        nr = ringbuffer_peek(cmdlog, req.bytes, sizeof(req));
+        lcb_ringbuffer_consumed(cmdlog, packetsize);
+        nr = lcb_ringbuffer_peek(cmdlog, req.bytes, sizeof(req));
 
         if (nr == 0) {
             return 0;

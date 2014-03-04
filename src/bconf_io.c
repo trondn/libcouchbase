@@ -196,9 +196,9 @@ static void connect_done_handler(lcb_connection_t conn, lcb_error_t err)
 
     if (err == LCB_SUCCESS) {
         /**
-         * Print the URI to the ringbuffer
+         * Print the URI to the lcb_ringbuffer
          */
-        ringbuffer_strcat(conn->output, instance->http_uri);
+        lcb_ringbuffer_strcat(conn->output, instance->http_uri);
         lcb_assert(conn->output->nbytes > 0);
 
         lcb_sockrw_set_want(conn, LCB_RW_EVENT, 0);

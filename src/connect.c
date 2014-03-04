@@ -421,11 +421,11 @@ void lcb_connection_close(lcb_connection_t conn)
     }
 
     if (conn->input) {
-        ringbuffer_reset(conn->input);
+        lcb_ringbuffer_reset(conn->input);
     }
 
     if (conn->output) {
-        ringbuffer_reset(conn->output);
+        lcb_ringbuffer_reset(conn->output);
     }
 }
 
@@ -479,13 +479,13 @@ void lcb_connection_cleanup(lcb_connection_t conn)
     }
 
     if (conn->input) {
-        ringbuffer_destruct(conn->input);
+        lcb_ringbuffer_destruct(conn->input);
         free(conn->input);
         conn->input = NULL;
     }
 
     if (conn->output) {
-        ringbuffer_destruct(conn->output);
+        lcb_ringbuffer_destruct(conn->output);
         free(conn->output);
         conn->output = NULL;
     }
@@ -538,10 +538,10 @@ void lcb_connection_delay_timer(lcb_connection_t conn)
     lcb_connection_activate_timer(conn);
 }
 
-static lcb_error_t reset_buffer(ringbuffer_t **rb, lcb_size_t defsz)
+static lcb_error_t reset_buffer(lcb_ringbuffer_t **rb, lcb_size_t defsz)
 {
     if (*rb) {
-        ringbuffer_reset(*rb);
+        lcb_ringbuffer_reset(*rb);
         return LCB_SUCCESS;
     }
 
@@ -551,7 +551,7 @@ static lcb_error_t reset_buffer(ringbuffer_t **rb, lcb_size_t defsz)
         return LCB_CLIENT_ENOMEM;
     }
 
-    if (!ringbuffer_initialize(*rb, defsz)) {
+    if (!lcb_ringbuffer_initialize(*rb, defsz)) {
         return LCB_CLIENT_ENOMEM;
     }
 

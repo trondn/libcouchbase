@@ -185,7 +185,7 @@ static void relocate_packets(lcb_server_t *src, lcb_t dst_instance)
     int idx;
     lcb_vbucket_t vb;
 
-    while (ringbuffer_read(&src->cmd_log, cmd.bytes, sizeof(cmd.bytes))) {
+    while (lcb_ringbuffer_read(&src->cmd_log, cmd.bytes, sizeof(cmd.bytes))) {
         nbody = ntohl(cmd.request.bodylen); /* extlen + nkey + nval */
         npacket = sizeof(cmd.bytes) + nbody;
         body = malloc(nbody);
@@ -194,7 +194,7 @@ static void relocate_packets(lcb_server_t *src, lcb_t dst_instance)
                               "Failed to allocate memory");
             return;
         }
-        lcb_assert(ringbuffer_read(&src->cmd_log, body, nbody) == nbody);
+        lcb_assert(lcb_ringbuffer_read(&src->cmd_log, body, nbody) == nbody);
 
         switch (cmd.request.opcode) {
         case PROTOCOL_BINARY_CMD_SASL_AUTH:
@@ -203,7 +203,7 @@ static void relocate_packets(lcb_server_t *src, lcb_t dst_instance)
             /* Skip unfinished SASL commands.
              * SASL AUTH written directly into output buffer,
              * therefore we can ignore its cookies */
-            ringbuffer_consumed(&src->output_cookies, sizeof(ct));
+            lcb_ringbuffer_consumed(&src->output_cookies, sizeof(ct));
             continue;
 
         default:
@@ -233,18 +233,18 @@ static void relocate_packets(lcb_server_t *src, lcb_t dst_instance)
          * commands patch, where cookies will live along with command
          * itself in the log
          */
-        lcb_assert(ringbuffer_read(&src->pending_cookies, &ct, sizeof(ct)) == sizeof(ct) ||
-                   ringbuffer_read(&src->output_cookies, &ct, sizeof(ct)) == sizeof(ct));
+        lcb_assert(lcb_ringbuffer_read(&src->pending_cookies, &ct, sizeof(ct)) == sizeof(ct) ||
+                   lcb_ringbuffer_read(&src->output_cookies, &ct, sizeof(ct)) == sizeof(ct));
 
-        lcb_assert(ringbuffer_ensure_capacity(&dst->cmd_log, npacket));
-        lcb_assert(ringbuffer_write(&dst->cmd_log, cmd.bytes, sizeof(cmd.bytes)) == sizeof(cmd.bytes));
-        lcb_assert(ringbuffer_write(&dst->cmd_log, body, nbody) == nbody);
+        lcb_assert(lcb_ringbuffer_ensure_capacity(&dst->cmd_log, npacket));
+        lcb_assert(lcb_ringbuffer_write(&dst->cmd_log, cmd.bytes, sizeof(cmd.bytes)) == sizeof(cmd.bytes));
+        lcb_assert(lcb_ringbuffer_write(&dst->cmd_log, body, nbody) == nbody);
 
-        lcb_assert(ringbuffer_ensure_capacity(&dst->pending, npacket));
-        lcb_assert(ringbuffer_write(&dst->pending, cmd.bytes, sizeof(cmd.bytes)) == sizeof(cmd.bytes));
-        lcb_assert(ringbuffer_write(&dst->pending, body, nbody) == nbody);
-        lcb_assert(ringbuffer_ensure_capacity(&dst->pending_cookies, sizeof(ct)));
-        lcb_assert(ringbuffer_write(&dst->pending_cookies, &ct, sizeof(ct)) == sizeof(ct));
+        lcb_assert(lcb_ringbuffer_ensure_capacity(&dst->pending, npacket));
+        lcb_assert(lcb_ringbuffer_write(&dst->pending, cmd.bytes, sizeof(cmd.bytes)) == sizeof(cmd.bytes));
+        lcb_assert(lcb_ringbuffer_write(&dst->pending, body, nbody) == nbody);
+        lcb_assert(lcb_ringbuffer_ensure_capacity(&dst->pending_cookies, sizeof(ct)));
+        lcb_assert(lcb_ringbuffer_write(&dst->pending_cookies, &ct, sizeof(ct)) == sizeof(ct));
 
         free(body);
     }

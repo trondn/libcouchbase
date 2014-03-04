@@ -154,9 +154,9 @@ static void socket_connected(lcb_connection_t conn, lcb_error_t err)
 
     if (!sasl_in_progress) {
         int sasl_ok = cbsasl_client_new("couchbase", conn->host,
-                                         nistrs.local, nistrs.remote,
-                                         server->instance->sasl.callbacks, 0,
-                                         &server->sasl_conn);
+                                        nistrs.local, nistrs.remote,
+                                        server->instance->sasl.callbacks, 0,
+                                        &server->sasl_conn);
         lcb_assert(sasl_ok == SASL_OK);
     }
 

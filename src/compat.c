@@ -88,7 +88,7 @@ static lcb_error_t create_memcached_compat(const struct lcb_memcached_st *user,
 static lcb_error_t create_memcached_config(const struct lcb_memcached_st *user,
                                            VBUCKET_CONFIG_HANDLE vbconfig)
 {
-    ringbuffer_t buffer;
+    lcb_ringbuffer_t buffer;
     char *copy = strdup(user->serverlist);
     int first;
     char *ptr = copy;
@@ -98,24 +98,24 @@ static lcb_error_t create_memcached_config(const struct lcb_memcached_st *user,
         return LCB_CLIENT_ENOMEM;
     }
 
-    if (ringbuffer_initialize(&buffer, 1024) == -1) {
+    if (lcb_ringbuffer_initialize(&buffer, 1024) == -1) {
         free(copy);
         return LCB_CLIENT_ENOMEM;
     }
 
-    ringbuffer_strcat(&buffer, "{\"bucketType\":\"memcached\",\"nodeLocator\":\"ketama\",");
+    lcb_ringbuffer_strcat(&buffer, "{\"bucketType\":\"memcached\",\"nodeLocator\":\"ketama\",");
     if (user->username != NULL) {
-        ringbuffer_strcat(&buffer, "\"authType\":\"sasl\",\"name\":\"");
-        ringbuffer_write(&buffer, user->username, strlen(user->username));
-        ringbuffer_strcat(&buffer, "\",");
+        lcb_ringbuffer_strcat(&buffer, "\"authType\":\"sasl\",\"name\":\"");
+        lcb_ringbuffer_write(&buffer, user->username, strlen(user->username));
+        lcb_ringbuffer_strcat(&buffer, "\",");
         if (user->password != NULL) {
-            ringbuffer_strcat(&buffer, "\"saslPassword\":\"");
-            ringbuffer_write(&buffer, user->password, strlen(user->password));
-            ringbuffer_strcat(&buffer, "\",");
+            lcb_ringbuffer_strcat(&buffer, "\"saslPassword\":\"");
+            lcb_ringbuffer_write(&buffer, user->password, strlen(user->password));
+            lcb_ringbuffer_strcat(&buffer, "\",");
         }
     }
 
-    ringbuffer_strcat(&buffer, "\"nodes\": [");
+    lcb_ringbuffer_strcat(&buffer, "\"nodes\": [");
 
     /* Let's add the hosts... */
     first = 1;
@@ -147,11 +147,11 @@ static lcb_error_t create_memcached_config(const struct lcb_memcached_st *user,
             return LCB_CLIENT_ENOMEM;
         }
         first = 0;
-        if (ringbuffer_ensure_capacity(&buffer, (lcb_size_t)length) == -1) {
+        if (lcb_ringbuffer_ensure_capacity(&buffer, (lcb_size_t)length) == -1) {
             free(copy);
             return LCB_CLIENT_ENOMEM;
         }
-        ringbuffer_write(&buffer, buf, (lcb_size_t)length);
+        lcb_ringbuffer_write(&buffer, buf, (lcb_size_t)length);
 
         if (next != NULL) {
             ptr = next + 1;
@@ -160,18 +160,18 @@ static lcb_error_t create_memcached_config(const struct lcb_memcached_st *user,
         }
     } while (ptr != NULL);
 
-    if (ringbuffer_ensure_capacity(&buffer, 3) == -1) {
+    if (lcb_ringbuffer_ensure_capacity(&buffer, 3) == -1) {
         free(copy);
         return LCB_CLIENT_ENOMEM;
     }
 
-    ringbuffer_write(&buffer, "]}", 3); /* Include '\0' */
+    lcb_ringbuffer_write(&buffer, "]}", 3); /* Include '\0' */
 
     /* Now let's parse the config! */
     fail = vbucket_config_parse(vbconfig, LIBVBUCKET_SOURCE_MEMORY,
-                                (char *)ringbuffer_get_read_head(&buffer));
+                                (char *)lcb_ringbuffer_get_read_head(&buffer));
     free(copy);
-    ringbuffer_destruct(&buffer);
+    lcb_ringbuffer_destruct(&buffer);
 
     if (fail) {
         /* Hmm... internal error! */

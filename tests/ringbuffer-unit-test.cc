@@ -17,17 +17,16 @@
 #include "config.h"
 #include <gtest/gtest.h>
 #include <libcouchbase/couchbase.h>
-#include "ringbuffer.h"
 
-class Ringbuffer : public ::testing::Test
+class Lcb_Ringbuffer : public ::testing::Test
 {
 protected:
     // Helper function used for debugging ;)
-    void dump_buffer(ringbuffer_t *ring) {
-        const char *begin = (const char *)ringbuffer_get_start(ring);
-        const char *end = begin + ringbuffer_get_size(ring);
-        const char *rd = (const char *)ringbuffer_get_read_head(ring);
-        const char *wr = (const char *)ringbuffer_get_write_head(ring);
+    void dump_buffer(lcb_ringbuffer_t *ring) {
+        const char *begin = (const char *)lcb_ringbuffer_get_start(ring);
+        const char *end = begin + lcb_ringbuffer_get_size(ring);
+        const char *rd = (const char *)lcb_ringbuffer_get_read_head(ring);
+        const char *wr = (const char *)lcb_ringbuffer_get_write_head(ring);
         const char *cur;
 
         /* write head */
@@ -61,57 +60,57 @@ protected:
     }
 };
 
-TEST_F(Ringbuffer, basicTests)
+TEST_F(Lcb_Ringbuffer, basicTests)
 {
-    ringbuffer_t ring;
+    lcb_ringbuffer_t ring;
     char buffer[1024];
     int ii;
 
-    EXPECT_NE(0, ringbuffer_initialize(&ring, 16));
-    EXPECT_EQ(0, ringbuffer_read(&ring, buffer, 1));
-    EXPECT_EQ(16, ringbuffer_write(&ring, "01234567891234567", 17));
+    EXPECT_NE(0, lcb_ringbuffer_initialize(&ring, 16));
+    EXPECT_EQ(0, lcb_ringbuffer_read(&ring, buffer, 1));
+    EXPECT_EQ(16, lcb_ringbuffer_write(&ring, "01234567891234567", 17));
 
     for (ii = 0; ii < 2; ++ii) {
         memset(buffer, 0, sizeof(buffer));
-        EXPECT_EQ(16, ringbuffer_peek(&ring, buffer, 16));
+        EXPECT_EQ(16, lcb_ringbuffer_peek(&ring, buffer, 16));
         EXPECT_EQ(0, memcmp(buffer, "01234567891234567", 16));
         memset(buffer, 0, sizeof(buffer));
-        EXPECT_EQ(10, ringbuffer_peek_at(&ring, 6, buffer, 10));
+        EXPECT_EQ(10, lcb_ringbuffer_peek_at(&ring, 6, buffer, 10));
         EXPECT_EQ(0, memcmp(buffer, "67891234567", 10));
     }
 
-    EXPECT_EQ(16, ringbuffer_read(&ring, buffer, 16));
-    EXPECT_EQ(0, ringbuffer_read(&ring, buffer, 1));
-    EXPECT_EQ(16, ringbuffer_write(&ring, "01234567891234567", 17));
-    EXPECT_EQ(8, ringbuffer_read(&ring, buffer, 8));
-    EXPECT_NE(0, ringbuffer_ensure_capacity(&ring, 9));
+    EXPECT_EQ(16, lcb_ringbuffer_read(&ring, buffer, 16));
+    EXPECT_EQ(0, lcb_ringbuffer_read(&ring, buffer, 1));
+    EXPECT_EQ(16, lcb_ringbuffer_write(&ring, "01234567891234567", 17));
+    EXPECT_EQ(8, lcb_ringbuffer_read(&ring, buffer, 8));
+    EXPECT_NE(0, lcb_ringbuffer_ensure_capacity(&ring, 9));
     EXPECT_EQ(32, ring.size);
     EXPECT_EQ(ring.root, ring.read_head);
-    EXPECT_EQ(8, ringbuffer_read(&ring, buffer, 9));
+    EXPECT_EQ(8, lcb_ringbuffer_read(&ring, buffer, 9));
     EXPECT_EQ(0, memcmp(buffer, "89123456", 8));
 
-    ringbuffer_destruct(&ring);
+    lcb_ringbuffer_destruct(&ring);
 
     // wrapped_buffer_test();
     // my_regression_1_test();
 
 }
 
-TEST_F(Ringbuffer, wrappedBufferTest)
+TEST_F(Lcb_Ringbuffer, wrappedBufferTest)
 {
-    ringbuffer_t ring;
+    lcb_ringbuffer_t ring;
     char buffer[128];
 
-    EXPECT_NE(0, ringbuffer_initialize(&ring, 10));
+    EXPECT_NE(0, lcb_ringbuffer_initialize(&ring, 10));
 
-    memset(ringbuffer_get_start(&ring), 0, 10);
+    memset(lcb_ringbuffer_get_start(&ring), 0, 10);
     /*  w
      * |----------|
      *  r
      */
 
     /* put 8 chars into the buffer */
-    EXPECT_EQ(8, ringbuffer_write(&ring, "01234567", 8));
+    EXPECT_EQ(8, lcb_ringbuffer_write(&ring, "01234567", 8));
 
     /*          w
      * |01234567--|
@@ -119,41 +118,41 @@ TEST_F(Ringbuffer, wrappedBufferTest)
      */
 
     /* consume first 5 chars */
-    EXPECT_EQ(5, ringbuffer_read(&ring, buffer, 5));
+    EXPECT_EQ(5, lcb_ringbuffer_read(&ring, buffer, 5));
     EXPECT_EQ(0, memcmp(buffer, "01234", 5));
 
     /*          w
      * |-----567--|
      *       r
      */
-    EXPECT_EQ(0, ringbuffer_is_continous(&ring, RINGBUFFER_WRITE, 5));
-    EXPECT_NE(0, ringbuffer_is_continous(&ring, RINGBUFFER_WRITE, 2));
+    EXPECT_EQ(0, lcb_ringbuffer_is_continous(&ring, LCB_RINGBUFFER_WRITE, 5));
+    EXPECT_NE(0, lcb_ringbuffer_is_continous(&ring, LCB_RINGBUFFER_WRITE, 2));
 
     /* wrapped write: write 5 more chars */
-    EXPECT_EQ(5, ringbuffer_write(&ring, "abcde", 5));
+    EXPECT_EQ(5, lcb_ringbuffer_write(&ring, "abcde", 5));
 
     /*     w
      * |cde--567ab|
      *       r
      */
 
-    EXPECT_EQ(0, ringbuffer_is_continous(&ring, RINGBUFFER_READ, 7));
-    EXPECT_NE(0, ringbuffer_is_continous(&ring, RINGBUFFER_READ, 2));
+    EXPECT_EQ(0, lcb_ringbuffer_is_continous(&ring, LCB_RINGBUFFER_READ, 7));
+    EXPECT_NE(0, lcb_ringbuffer_is_continous(&ring, LCB_RINGBUFFER_READ, 2));
 
     /* wrapped read: read 6 chars */
-    EXPECT_EQ(6, ringbuffer_read(&ring, buffer, 6));
+    EXPECT_EQ(6, lcb_ringbuffer_read(&ring, buffer, 6));
     EXPECT_EQ(0, memcmp(buffer, "567abc", 6));
     /*     w
      * |-de-------|
      *   r
      */
-    ringbuffer_destruct(&ring);
+    lcb_ringbuffer_destruct(&ring);
 }
 
 // This is a crash I noticed while I was debugging the tap code
-TEST_F(Ringbuffer, regression1)
+TEST_F(Lcb_Ringbuffer, regression1)
 {
-    ringbuffer_t ring;
+    lcb_ringbuffer_t ring;
     struct lcb_iovec_st iov[2];
     ring.root = (char *)0x477a80;
     ring.read_head = (char *)0x47b0a3;
@@ -161,7 +160,7 @@ TEST_F(Ringbuffer, regression1)
     ring.size = 16384;
     ring.nbytes = 1202;
 
-    ringbuffer_get_iov(&ring, RINGBUFFER_WRITE, iov);
+    lcb_ringbuffer_get_iov(&ring, LCB_RINGBUFFER_WRITE, iov);
     // up to the end
     EXPECT_EQ(ring.write_head, iov[0].iov_base);
     EXPECT_EQ(1323, iov[0].iov_len);
@@ -171,20 +170,20 @@ TEST_F(Ringbuffer, regression1)
     EXPECT_EQ(13859, iov[1].iov_len);
 }
 
-TEST_F(Ringbuffer, replace)
+TEST_F(Lcb_Ringbuffer, replace)
 {
-    ringbuffer_t rb;
+    lcb_ringbuffer_t rb;
 
-    EXPECT_EQ(1, ringbuffer_initialize(&rb, 16));
+    EXPECT_EQ(1, lcb_ringbuffer_initialize(&rb, 16));
     EXPECT_TRUE(memset(rb.root, 0, rb.size) != NULL);
-    EXPECT_EQ(8, ringbuffer_write(&rb, "01234567", 8));
+    EXPECT_EQ(8, lcb_ringbuffer_write(&rb, "01234567", 8));
     EXPECT_EQ(0, memcmp(rb.root, "01234567\0\0\0\0\0\0\0\0", rb.size));
     /*          w
      * |01234567--------|
      *  r
      */
 
-    EXPECT_EQ(2, ringbuffer_update(&rb, RINGBUFFER_READ, "ab", 2));
+    EXPECT_EQ(2, lcb_ringbuffer_update(&rb, LCB_RINGBUFFER_READ, "ab", 2));
     EXPECT_EQ(8, rb.nbytes);
     EXPECT_EQ(0, memcmp(rb.root, "ab234567\0\0\0\0\0\0\0\0", rb.size));
     /*          w
@@ -192,7 +191,7 @@ TEST_F(Ringbuffer, replace)
      *  r
      */
 
-    EXPECT_EQ(2, ringbuffer_update(&rb, RINGBUFFER_WRITE, "cd", 2));
+    EXPECT_EQ(2, lcb_ringbuffer_update(&rb, LCB_RINGBUFFER_WRITE, "cd", 2));
     EXPECT_EQ(8, rb.nbytes);
     EXPECT_EQ(0, memcmp(rb.root, "ab2345cd\0\0\0\0\0\0\0\0", rb.size));
     /*          w
@@ -200,7 +199,7 @@ TEST_F(Ringbuffer, replace)
      *  r
      */
 
-    ringbuffer_consumed(&rb, 3);
+    lcb_ringbuffer_consumed(&rb, 3);
     EXPECT_EQ(5, rb.nbytes);
     EXPECT_EQ(rb.root + 3, rb.read_head);
     /*          w
@@ -208,7 +207,7 @@ TEST_F(Ringbuffer, replace)
      *     r
      */
 
-    EXPECT_EQ(5, ringbuffer_update(&rb, RINGBUFFER_READ, "efghij", 6));
+    EXPECT_EQ(5, lcb_ringbuffer_update(&rb, LCB_RINGBUFFER_READ, "efghij", 6));
     EXPECT_EQ(5, rb.nbytes);
     EXPECT_EQ(0, memcmp(rb.root, "ab2efghi\0\0\0\0\0\0\0\0", rb.size));
     /*          w
@@ -216,7 +215,7 @@ TEST_F(Ringbuffer, replace)
      *     r
      */
 
-    EXPECT_EQ(5, ringbuffer_update(&rb, RINGBUFFER_WRITE, "klmnop", 6));
+    EXPECT_EQ(5, lcb_ringbuffer_update(&rb, LCB_RINGBUFFER_WRITE, "klmnop", 6));
     EXPECT_EQ(5, rb.nbytes);
     EXPECT_EQ(0, memcmp(rb.root, "ab2klmno\0\0\0\0\0\0\0\0", rb.size));
     /*          w
@@ -224,7 +223,7 @@ TEST_F(Ringbuffer, replace)
      *     r
      */
 
-    EXPECT_EQ(10, ringbuffer_write(&rb, "0123456789", 10));
+    EXPECT_EQ(10, lcb_ringbuffer_write(&rb, "0123456789", 10));
     EXPECT_EQ(15, rb.nbytes);
     EXPECT_EQ(0, memcmp(rb.root, "892klmno01234567", rb.size));
     /*    w
@@ -232,7 +231,7 @@ TEST_F(Ringbuffer, replace)
      *     r
      */
 
-    EXPECT_EQ(10, ringbuffer_update(&rb, RINGBUFFER_WRITE, "abcdefghij", 10));
+    EXPECT_EQ(10, lcb_ringbuffer_update(&rb, LCB_RINGBUFFER_WRITE, "abcdefghij", 10));
     EXPECT_EQ(15, rb.nbytes);
     EXPECT_EQ(0, memcmp(rb.root, "ij2klmnoabcdefgh", rb.size));
     /*    w
@@ -240,7 +239,7 @@ TEST_F(Ringbuffer, replace)
      *     r
      */
 
-    ringbuffer_consumed(&rb, 6);
+    lcb_ringbuffer_consumed(&rb, 6);
     EXPECT_EQ(9, rb.nbytes);
     EXPECT_EQ(rb.root + 9, rb.read_head);
     /*    w
@@ -248,31 +247,31 @@ TEST_F(Ringbuffer, replace)
      *           r
      */
 
-    EXPECT_EQ(8, ringbuffer_update(&rb, RINGBUFFER_READ, "12345678", 8));
+    EXPECT_EQ(8, lcb_ringbuffer_update(&rb, LCB_RINGBUFFER_READ, "12345678", 8));
     EXPECT_EQ(9, rb.nbytes);
     EXPECT_EQ(0, memcmp(rb.root, "8j2klmnoa1234567", rb.size));
     /*    w
      * |8j2klmnoa1234567|
      *           r
      */
-    ringbuffer_destruct(&rb);
+    lcb_ringbuffer_destruct(&rb);
 }
 
-TEST_F(Ringbuffer, memcpy)
+TEST_F(Lcb_Ringbuffer, memcpy)
 {
     char buffer[1024];
-    ringbuffer_t src, dst;
+    lcb_ringbuffer_t src, dst;
 
-    EXPECT_EQ(1, ringbuffer_initialize(&src, 16));
-    EXPECT_EQ(8, ringbuffer_write(&src, "01234567", 8));
+    EXPECT_EQ(1, lcb_ringbuffer_initialize(&src, 16));
+    EXPECT_EQ(8, lcb_ringbuffer_write(&src, "01234567", 8));
 
-    EXPECT_EQ(1, ringbuffer_initialize(&dst, 16));
+    EXPECT_EQ(1, lcb_ringbuffer_initialize(&dst, 16));
 
-    EXPECT_EQ(0, ringbuffer_memcpy(&dst, &src, 4));
+    EXPECT_EQ(0, lcb_ringbuffer_memcpy(&dst, &src, 4));
     EXPECT_EQ(4, dst.nbytes);
-    EXPECT_EQ(4, ringbuffer_read(&dst, buffer, 4));
+    EXPECT_EQ(4, lcb_ringbuffer_read(&dst, buffer, 4));
     EXPECT_EQ(0, memcmp(buffer, "0123", 4));
 
-    ringbuffer_destruct(&src);
-    ringbuffer_destruct(&dst);
+    lcb_ringbuffer_destruct(&src);
+    lcb_ringbuffer_destruct(&dst);
 }

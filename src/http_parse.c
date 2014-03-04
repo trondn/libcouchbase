@@ -97,12 +97,12 @@ static int http_parser_body_cb(http_parser *p, const char *bytes, lcb_size_t nby
                                   req->headers, bytes, nbytes);
         req->on_data(req, req->instance, req->command_cookie, LCB_SUCCESS, &resp);
     } else {
-        if (!ringbuffer_ensure_capacity(&req->result, nbytes)) {
+        if (!lcb_ringbuffer_ensure_capacity(&req->result, nbytes)) {
             lcb_error_handler(req->instance, LCB_CLIENT_ENOMEM,
                               "Failed to allocate buffer");
             return -1;
         }
-        ringbuffer_write(&req->result, bytes, nbytes);
+        lcb_ringbuffer_write(&req->result, bytes, nbytes);
     }
     return 0;
 }
@@ -121,14 +121,14 @@ static int http_parser_complete_cb(http_parser *p)
 
     if (!req->chunked) {
         nbytes = req->result.nbytes;
-        if (ringbuffer_is_continous(&req->result, RINGBUFFER_READ, nbytes)) {
-            bytes = ringbuffer_get_read_head(&req->result);
+        if (lcb_ringbuffer_is_continous(&req->result, LCB_RINGBUFFER_READ, nbytes)) {
+            bytes = lcb_ringbuffer_get_read_head(&req->result);
         } else {
             if ((bytes = malloc(nbytes)) == NULL) {
                 lcb_error_handler(req->instance, LCB_CLIENT_ENOMEM, NULL);
                 return -1;
             }
-            np = ringbuffer_peek(req->connection.input, bytes, nbytes);
+            np = lcb_ringbuffer_peek(req->connection.input, bytes, nbytes);
             if (np != nbytes) {
                 lcb_error_handler(req->instance, LCB_EINTERNAL, NULL);
                 free(bytes);
@@ -150,7 +150,7 @@ static int http_parser_complete_cb(http_parser *p)
     }
 
     if (!req->chunked) {
-        ringbuffer_consumed(&req->result, nbytes);
+        lcb_ringbuffer_consumed(&req->result, nbytes);
         if (np) {   /* release peek storage */
             free(bytes);
         }
@@ -166,20 +166,20 @@ int lcb_http_request_do_parse(lcb_http_request_t req)
 {
     lcb_size_t nbytes, nb = 0, np = 0;
     char *bytes;
-    ringbuffer_t *input = req->connection.input;
+    lcb_ringbuffer_t *input = req->connection.input;
 
     if (req->status != LCB_HTREQ_S_ONGOING) {
         return 0;
     }
 
     nbytes = input->nbytes;
-    bytes = ringbuffer_get_read_head(input);
-    if (!ringbuffer_is_continous(input, RINGBUFFER_READ, nbytes)) {
+    bytes = lcb_ringbuffer_get_read_head(input);
+    if (!lcb_ringbuffer_is_continous(input, LCB_RINGBUFFER_READ, nbytes)) {
         if ((bytes = malloc(nbytes)) == NULL) {
             lcb_error_handler(req->instance, LCB_CLIENT_ENOMEM, NULL);
             return -1;
         }
-        np = ringbuffer_peek(input, bytes, nbytes);
+        np = lcb_ringbuffer_peek(input, bytes, nbytes);
         if (np != nbytes) {
             lcb_error_handler(req->instance, LCB_EINTERNAL, NULL);
             free(bytes);
@@ -189,7 +189,7 @@ int lcb_http_request_do_parse(lcb_http_request_t req)
 
     if (nbytes > 0) {
         nb = (lcb_size_t)_lcb_http_parser_execute(req->parser, &req->parser_settings, bytes, nbytes);
-        ringbuffer_consumed(input, nbytes);
+        lcb_ringbuffer_consumed(input, nbytes);
         if (np) {   /* release peek storage */
             free(bytes);
         }

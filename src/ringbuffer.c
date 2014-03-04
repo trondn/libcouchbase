@@ -23,19 +23,19 @@ static lcb_size_t minimum(lcb_size_t a, lcb_size_t b)
 }
 
 
-int ringbuffer_initialize(ringbuffer_t *buffer, lcb_size_t size)
+int lcb_ringbuffer_initialize(lcb_ringbuffer_t *buffer, lcb_size_t size)
 {
     char *root = malloc(size);
     if (root == NULL) {
         return 0;
     }
-    ringbuffer_take_buffer(buffer, root, size);
+    lcb_ringbuffer_take_buffer(buffer, root, size);
     return 1;
 }
 
-void ringbuffer_take_buffer(ringbuffer_t *buffer, char *buf, lcb_size_t size)
+void lcb_ringbuffer_take_buffer(lcb_ringbuffer_t *buffer, char *buf, lcb_size_t size)
 {
-    memset(buffer, 0, sizeof(ringbuffer_t));
+    memset(buffer, 0, sizeof(lcb_ringbuffer_t));
     buffer->root = buf;
     buffer->size = size;
     buffer->write_head = buffer->root;
@@ -43,20 +43,20 @@ void ringbuffer_take_buffer(ringbuffer_t *buffer, char *buf, lcb_size_t size)
 }
 
 
-void ringbuffer_reset(ringbuffer_t *buffer)
+void lcb_ringbuffer_reset(lcb_ringbuffer_t *buffer)
 {
-    ringbuffer_consumed(buffer,
-                        ringbuffer_get_nbytes(buffer));
+    lcb_ringbuffer_consumed(buffer,
+                            lcb_ringbuffer_get_nbytes(buffer));
 }
 
-void ringbuffer_destruct(ringbuffer_t *buffer)
+void lcb_ringbuffer_destruct(lcb_ringbuffer_t *buffer)
 {
     free(buffer->root);
     buffer->root = buffer->read_head = buffer->write_head = NULL;
     buffer->size = buffer->nbytes = 0;
 }
 
-int ringbuffer_ensure_capacity(ringbuffer_t *buffer, lcb_size_t size)
+int lcb_ringbuffer_ensure_capacity(lcb_ringbuffer_t *buffer, lcb_size_t size)
 {
     char *new_root;
     lcb_size_t new_size = buffer->size << 1;
@@ -82,7 +82,7 @@ int ringbuffer_ensure_capacity(ringbuffer_t *buffer, lcb_size_t size)
         /* copy the data over :) */
         char *old;
         lcb_size_t nbytes = buffer->nbytes;
-        lcb_size_t nr = ringbuffer_read(buffer, new_root, nbytes);
+        lcb_size_t nr = lcb_ringbuffer_read(buffer, new_root, nbytes);
         lcb_assert(nr == nbytes);
         old = buffer->root;
         buffer->size = new_size;
@@ -95,29 +95,29 @@ int ringbuffer_ensure_capacity(ringbuffer_t *buffer, lcb_size_t size)
     }
 }
 
-lcb_size_t ringbuffer_get_size(ringbuffer_t *buffer)
+lcb_size_t lcb_ringbuffer_get_size(lcb_ringbuffer_t *buffer)
 {
     return buffer->size;
 }
 
-void *ringbuffer_get_start(ringbuffer_t *buffer)
+void *lcb_ringbuffer_get_start(lcb_ringbuffer_t *buffer)
 {
     return buffer->root;
 }
 
-void *ringbuffer_get_read_head(ringbuffer_t *buffer)
+void *lcb_ringbuffer_get_read_head(lcb_ringbuffer_t *buffer)
 {
     return buffer->read_head;
 }
 
-void *ringbuffer_get_write_head(ringbuffer_t *buffer)
+void *lcb_ringbuffer_get_write_head(lcb_ringbuffer_t *buffer)
 {
     return buffer->write_head;
 }
 
-lcb_size_t ringbuffer_write(ringbuffer_t *buffer,
-                            const void *src,
-                            lcb_size_t nb)
+lcb_size_t lcb_ringbuffer_write(lcb_ringbuffer_t *buffer,
+                                const void *src,
+                                lcb_size_t nb)
 {
     const char *s = src;
     lcb_size_t nw = 0;
@@ -166,16 +166,16 @@ lcb_size_t ringbuffer_write(ringbuffer_t *buffer,
     return nw;
 }
 
-lcb_size_t ringbuffer_strcat(ringbuffer_t *buffer, const char *str)
+lcb_size_t lcb_ringbuffer_strcat(lcb_ringbuffer_t *buffer, const char *str)
 {
     lcb_size_t len = strlen(str);
-    if (!ringbuffer_ensure_capacity(buffer, len)) {
+    if (!lcb_ringbuffer_ensure_capacity(buffer, len)) {
         return 0;
     }
-    return ringbuffer_write(buffer, str, len);
+    return lcb_ringbuffer_write(buffer, str, len);
 }
 
-static void maybe_reset(ringbuffer_t *buffer)
+static void maybe_reset(lcb_ringbuffer_t *buffer)
 {
     if (buffer->nbytes == 0) {
         buffer->write_head = buffer->root;
@@ -184,7 +184,7 @@ static void maybe_reset(ringbuffer_t *buffer)
 }
 
 
-lcb_size_t ringbuffer_read(ringbuffer_t *buffer, void *dest, lcb_size_t nb)
+lcb_size_t lcb_ringbuffer_read(lcb_ringbuffer_t *buffer, void *dest, lcb_size_t nb)
 {
     char *d = dest;
     lcb_size_t nr = 0;
@@ -237,48 +237,48 @@ lcb_size_t ringbuffer_read(ringbuffer_t *buffer, void *dest, lcb_size_t nb)
     return nr;
 }
 
-lcb_size_t ringbuffer_peek(ringbuffer_t *buffer, void *dest, lcb_size_t nb)
+lcb_size_t lcb_ringbuffer_peek(lcb_ringbuffer_t *buffer, void *dest, lcb_size_t nb)
 {
-    ringbuffer_t copy = *buffer;
-    return ringbuffer_read(&copy, dest, nb);
+    lcb_ringbuffer_t copy = *buffer;
+    return lcb_ringbuffer_read(&copy, dest, nb);
 }
 
-lcb_size_t ringbuffer_peek_at(ringbuffer_t *buffer, lcb_size_t offset,
-                              void *dest, lcb_size_t nb)
+lcb_size_t lcb_ringbuffer_peek_at(lcb_ringbuffer_t *buffer, lcb_size_t offset,
+                                  void *dest, lcb_size_t nb)
 {
-    ringbuffer_t copy = *buffer;
-    lcb_size_t n = ringbuffer_read(&copy, NULL, offset);
+    lcb_ringbuffer_t copy = *buffer;
+    lcb_size_t n = lcb_ringbuffer_read(&copy, NULL, offset);
     if (n != offset) {
         return -1;
     }
-    return ringbuffer_read(&copy, dest, nb);
+    return lcb_ringbuffer_read(&copy, dest, nb);
 }
 
-void ringbuffer_produced(ringbuffer_t *buffer, lcb_size_t nb)
+void lcb_ringbuffer_produced(lcb_ringbuffer_t *buffer, lcb_size_t nb)
 {
-    lcb_size_t n = ringbuffer_write(buffer, NULL, nb);
+    lcb_size_t n = lcb_ringbuffer_write(buffer, NULL, nb);
     lcb_assert(n == nb);
 }
 
-void ringbuffer_consumed(ringbuffer_t *buffer, lcb_size_t nb)
+void lcb_ringbuffer_consumed(lcb_ringbuffer_t *buffer, lcb_size_t nb)
 {
-    lcb_size_t n = ringbuffer_read(buffer, NULL, nb);
+    lcb_size_t n = lcb_ringbuffer_read(buffer, NULL, nb);
     lcb_assert(n == nb);
 }
 
-lcb_size_t ringbuffer_get_nbytes(ringbuffer_t *buffer)
+lcb_size_t lcb_ringbuffer_get_nbytes(lcb_ringbuffer_t *buffer)
 {
     return buffer->nbytes;
 }
 
-lcb_size_t ringbuffer_update(ringbuffer_t *buffer,
-                             ringbuffer_direction_t direction,
-                             const void *src, lcb_size_t nb)
+lcb_size_t lcb_ringbuffer_update(lcb_ringbuffer_t *buffer,
+                                 lcb_ringbuffer_direction_t direction,
+                                 const void *src, lcb_size_t nb)
 {
     const char *s = src;
     lcb_size_t nw, ret = 0;
 
-    if (direction == RINGBUFFER_READ) {
+    if (direction == LCB_RINGBUFFER_READ) {
         if (buffer->read_head <= buffer->write_head) {
             nw = minimum(nb, buffer->nbytes);
             memcpy(buffer->read_head, s, nw);
@@ -317,14 +317,14 @@ lcb_size_t ringbuffer_update(ringbuffer_t *buffer,
 }
 
 
-void ringbuffer_get_iov(ringbuffer_t *buffer,
-                        ringbuffer_direction_t direction,
-                        struct lcb_iovec_st *iov)
+void lcb_ringbuffer_get_iov(lcb_ringbuffer_t *buffer,
+                            lcb_ringbuffer_direction_t direction,
+                            struct lcb_iovec_st *iov)
 {
     iov[1].iov_base = buffer->root;
     iov[1].iov_len = 0;
 
-    if (direction == RINGBUFFER_READ) {
+    if (direction == LCB_RINGBUFFER_READ) {
         iov[0].iov_base = buffer->read_head;
         iov[0].iov_len = buffer->nbytes;
         if (buffer->read_head >= buffer->write_head) {
@@ -335,7 +335,7 @@ void ringbuffer_get_iov(ringbuffer_t *buffer,
             }
         }
     } else {
-        lcb_assert(direction == RINGBUFFER_WRITE);
+        lcb_assert(direction == LCB_RINGBUFFER_WRITE);
         iov[0].iov_base = buffer->write_head;
         iov[0].iov_len = buffer->size - buffer->nbytes;
         if (buffer->write_head >= buffer->read_head) {
@@ -347,13 +347,13 @@ void ringbuffer_get_iov(ringbuffer_t *buffer,
     }
 }
 
-int ringbuffer_is_continous(ringbuffer_t *buffer,
-                            ringbuffer_direction_t direction,
-                            lcb_size_t nb)
+int lcb_ringbuffer_is_continous(lcb_ringbuffer_t *buffer,
+                                lcb_ringbuffer_direction_t direction,
+                                lcb_size_t nb)
 {
     int ret;
 
-    if (direction == RINGBUFFER_READ) {
+    if (direction == LCB_RINGBUFFER_READ) {
         ret = (nb <= buffer->nbytes);
 
         if (buffer->read_head >= buffer->write_head) {
@@ -374,65 +374,65 @@ int ringbuffer_is_continous(ringbuffer_t *buffer,
     return ret;
 }
 
-int ringbuffer_append(ringbuffer_t *src, ringbuffer_t *dest)
+int lcb_ringbuffer_append(lcb_ringbuffer_t *src, lcb_ringbuffer_t *dest)
 {
     char buffer[1024];
     lcb_size_t nr, nw;
 
-    while ((nr = ringbuffer_read(src, buffer,
-                                 sizeof(buffer))) != 0) {
-        lcb_assert(ringbuffer_ensure_capacity(dest, nr));
-        nw = ringbuffer_write(dest, buffer, nr);
+    while ((nr = lcb_ringbuffer_read(src, buffer,
+                                     sizeof(buffer))) != 0) {
+        lcb_assert(lcb_ringbuffer_ensure_capacity(dest, nr));
+        nw = lcb_ringbuffer_write(dest, buffer, nr);
         lcb_assert(nw == nr);
     }
 
     return 1;
 }
 
-int ringbuffer_memcpy(ringbuffer_t *dst, ringbuffer_t *src,
-                      lcb_size_t nbytes)
+int lcb_ringbuffer_memcpy(lcb_ringbuffer_t *dst, lcb_ringbuffer_t *src,
+                          lcb_size_t nbytes)
 {
-    ringbuffer_t copy = *src;
+    lcb_ringbuffer_t copy = *src;
     struct lcb_iovec_st iov[2];
     int ii = 0;
     lcb_size_t towrite = nbytes;
     lcb_size_t toread, nb;
 
-    if (nbytes > ringbuffer_get_nbytes(src)) {
+    if (nbytes > lcb_ringbuffer_get_nbytes(src)) {
         /* EINVAL */
         return -1;
     }
 
-    if (!ringbuffer_ensure_capacity(dst, nbytes)) {
+    if (!lcb_ringbuffer_ensure_capacity(dst, nbytes)) {
         /* Failed to allocate space */
         return -1;
     }
 
-    ringbuffer_get_iov(dst, RINGBUFFER_WRITE, iov);
+    lcb_ringbuffer_get_iov(dst, LCB_RINGBUFFER_WRITE, iov);
     toread = minimum(iov[ii].iov_len, nbytes);
     do {
         lcb_assert(ii < 2);
-        nb = ringbuffer_read(&copy, iov[ii].iov_base, toread);
+        nb = lcb_ringbuffer_read(&copy, iov[ii].iov_base, toread);
         toread -= nb;
         towrite -= nb;
         ++ii;
     } while (towrite > 0);
-    ringbuffer_produced(dst, nbytes);
+    lcb_ringbuffer_produced(dst, nbytes);
     return 0;
 }
 
-int ringbuffer_ensure_alignment(ringbuffer_t *c)
+int lcb_ringbuffer_ensure_alignment(lcb_ringbuffer_t *c)
 {
 #if defined(__hpux__) || defined(__hpux) || defined(__sparc__) || defined(__sparc)
     intptr_t addr = (intptr_t)c->read_head;
 
     if (addr % 8 != 0) {
-        ringbuffer_t copy;
-        if (ringbuffer_initialize(&copy, c->size) == 0 ||
-                ringbuffer_memcpy(&copy, c, ringbuffer_get_nbytes(c)) == -1) {
+        lcb_ringbuffer_t copy;
+        if (lcb_ringbuffer_initialize(&copy, c->size) == 0 ||
+                lcb_ringbuffer_memcpy(&copy, c, lcb_ringbuffer_get_nbytes(c)) == -1) {
             return -1;
         }
-        ringbuffer_destruct(c);
+        lcb_ringbuffer_destruct(c);
         *c = copy;
     }
 #else

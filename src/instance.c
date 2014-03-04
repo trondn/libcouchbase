@@ -403,11 +403,11 @@ lcb_error_t lcb_create(lcb_t *instance,
         return LCB_CLIENT_ENOMEM;
     }
 
-    if (!ringbuffer_initialize(&obj->purged_buf, 4096)) {
+    if (!lcb_ringbuffer_initialize(&obj->purged_buf, 4096)) {
         lcb_destroy(obj);
         return LCB_CLIENT_ENOMEM;
     }
-    if (!ringbuffer_initialize(&obj->purged_cookies, 4096)) {
+    if (!lcb_ringbuffer_initialize(&obj->purged_cookies, 4096)) {
         lcb_destroy(obj);
         return LCB_CLIENT_ENOMEM;
     }
@@ -483,8 +483,8 @@ void lcb_destroy(lcb_t instance)
         lcb_destroy_io_ops(instance->io);
     }
 
-    ringbuffer_destruct(&instance->purged_buf);
-    ringbuffer_destruct(&instance->purged_cookies);
+    lcb_ringbuffer_destruct(&instance->purged_buf);
+    lcb_ringbuffer_destruct(&instance->purged_cookies);
 
     free(instance->vbucket_stream.input.data);
     free(instance->vbucket_stream.chunk.data);

@@ -84,8 +84,8 @@ extern "C" {
         struct addrinfo *ai;
         struct addrinfo *curr_ai;
 
-        ringbuffer_t *input;
-        ringbuffer_t *output;
+        lcb_ringbuffer_t *input;
+        lcb_ringbuffer_t *output;
 
         /** instance */
         lcb_t instance;
@@ -221,13 +221,13 @@ extern "C" {
 
 
     /* Read a bit of data */
-    lcb_sockrw_status_t lcb_sockrw_v0_read(lcb_connection_t conn, ringbuffer_t *buf);
+    lcb_sockrw_status_t lcb_sockrw_v0_read(lcb_connection_t conn, lcb_ringbuffer_t *buf);
 
     /* Exhaust the data until there is nothing to read */
-    lcb_sockrw_status_t lcb_sockrw_v0_slurp(lcb_connection_t conn, ringbuffer_t *buf);
+    lcb_sockrw_status_t lcb_sockrw_v0_slurp(lcb_connection_t conn, lcb_ringbuffer_t *buf);
 
     /* Write as much data from the write buffer until blocked */
-    lcb_sockrw_status_t lcb_sockrw_v0_write(lcb_connection_t conn, ringbuffer_t *buf);
+    lcb_sockrw_status_t lcb_sockrw_v0_write(lcb_connection_t conn, lcb_ringbuffer_t *buf);
 
     int lcb_sockrw_flushed(lcb_connection_t conn);
     /**
@@ -248,22 +248,22 @@ extern "C" {
     int lcb_flushing_buffers(lcb_t instance);
 
     lcb_sockrw_status_t lcb_sockrw_v1_start_read(lcb_connection_t conn,
-                                                 ringbuffer_t **buf,
+                                                 lcb_ringbuffer_t **buf,
                                                  lcb_io_read_cb callback,
                                                  lcb_io_error_cb error_callback);
 
     lcb_sockrw_status_t lcb_sockrw_v1_start_write(lcb_connection_t conn,
-                                                  ringbuffer_t **buf,
+                                                  lcb_ringbuffer_t **buf,
                                                   lcb_io_write_cb callback,
                                                   lcb_io_error_cb error_callback);
 
     void lcb_sockrw_v1_onread_common(lcb_sockdata_t *sock,
-                                     ringbuffer_t **dst,
+                                     lcb_ringbuffer_t **dst,
                                      lcb_ssize_t nr);
 
     void lcb_sockrw_v1_onwrite_common(lcb_sockdata_t *sock,
                                       lcb_io_writebuf_t *wbuf,
-                                      ringbuffer_t **dst);
+                                      lcb_ringbuffer_t **dst);
 
     unsigned int lcb_sockrw_v1_cb_common(lcb_sockdata_t *sock,
                                          lcb_io_writebuf_t *wbuf,

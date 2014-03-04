@@ -40,7 +40,7 @@ static void request_free_headers(lcb_http_request_t req)
     req->headers_list = NULL;
 }
 
-static lcb_error_t render_http_preamble(lcb_http_request_t req, ringbuffer_t *out)
+static lcb_error_t render_http_preamble(lcb_http_request_t req, lcb_ringbuffer_t *out)
 {
     const char http_version[] = " HTTP/1.1\r\n";
     lcb_size_t sz;
@@ -50,19 +50,19 @@ static lcb_error_t render_http_preamble(lcb_http_request_t req, ringbuffer_t *ou
     if (req->url_info.field_set & UF_QUERY) {
         sz += (lcb_size_t)req->url_info.field_data[UF_QUERY].len + 1;
     }
-    if (ringbuffer_ensure_capacity(out, sz) == 0) {
+    if (lcb_ringbuffer_ensure_capacity(out, sz) == 0) {
         return LCB_CLIENT_ENOMEM;
     }
     sz = strlen(method);
-    lcb_assert(ringbuffer_write(out, method, sz) == sz);
+    lcb_assert(lcb_ringbuffer_write(out, method, sz) == sz);
     sz = req->url_info.field_data[UF_PATH].len;
-    lcb_assert(ringbuffer_write(out, req->url + req->url_info.field_data[UF_PATH].off, sz) == sz);
+    lcb_assert(lcb_ringbuffer_write(out, req->url + req->url_info.field_data[UF_PATH].off, sz) == sz);
     sz = req->url_info.field_data[UF_QUERY].len; /* include '?' */
     if (sz) {
-        lcb_assert(ringbuffer_write(out, req->url + req->url_info.field_data[UF_QUERY].off - 1, sz + 1) == sz + 1);
+        lcb_assert(lcb_ringbuffer_write(out, req->url + req->url_info.field_data[UF_QUERY].off - 1, sz + 1) == sz + 1);
     }
     sz = strlen(http_version);
-    lcb_assert(ringbuffer_write(out, http_version, sz) == sz);
+    lcb_assert(lcb_ringbuffer_write(out, http_version, sz) == sz);
     return LCB_SUCCESS;
 }
 
@@ -111,7 +111,7 @@ void lcb_http_request_decref(lcb_http_request_t req)
         free(req->parser->data);
     }
     free(req->parser);
-    ringbuffer_destruct(&req->result);
+    lcb_ringbuffer_destruct(&req->result);
     request_free_headers(req);
     LCB_LIST_SAFE_FOR(ii, nn, &req->headers_out.list) {
         lcb_list_delete(ii);
@@ -184,7 +184,7 @@ lcb_error_t lcb_http_request_exec(lcb_http_request_t req)
 {
     lcb_t instance = req->instance;
     lcb_error_t rc;
-    ringbuffer_t *out;
+    lcb_ringbuffer_t *out;
     lcb_list_t *ii;
 
     request_free_headers(req);
@@ -216,21 +216,21 @@ lcb_error_t lcb_http_request_exec(lcb_http_request_t req)
         lcb_http_header_t *hh = LCB_LIST_ITEM(ii, lcb_http_header_t, list);
         lcb_size_t nkey = strlen(hh->key);
         lcb_size_t nval = strlen(hh->val);
-        if (!ringbuffer_ensure_capacity(out, nkey + nval + 4)) {
+        if (!lcb_ringbuffer_ensure_capacity(out, nkey + nval + 4)) {
             lcb_http_request_decref(req);
             return LCB_CLIENT_ENOMEM;
         }
-        lcb_assert(ringbuffer_write(out, hh->key, nkey) == nkey);
-        lcb_assert(ringbuffer_write(out, ": ", 2) == 2);
-        lcb_assert(ringbuffer_write(out, hh->val, nval) == nval);
-        lcb_assert(ringbuffer_write(out, "\r\n", 2) == 2);
+        lcb_assert(lcb_ringbuffer_write(out, hh->key, nkey) == nkey);
+        lcb_assert(lcb_ringbuffer_write(out, ": ", 2) == 2);
+        lcb_assert(lcb_ringbuffer_write(out, hh->val, nval) == nval);
+        lcb_assert(lcb_ringbuffer_write(out, "\r\n", 2) == 2);
     }
-    if (!ringbuffer_ensure_capacity(out, 2)) {
+    if (!lcb_ringbuffer_ensure_capacity(out, 2)) {
         lcb_http_request_decref(req);
         return LCB_CLIENT_ENOMEM;
     }
-    lcb_assert(ringbuffer_write(out, "\r\n", 2) == 2);
-    lcb_assert(ringbuffer_write(out, req->body, req->nbody) == req->nbody);
+    lcb_assert(lcb_ringbuffer_write(out, "\r\n", 2) == 2);
+    lcb_assert(lcb_ringbuffer_write(out, req->body, req->nbody) == req->nbody);
 
     /* Initialize HTTP parser */
     free(req->parser);
@@ -257,35 +257,35 @@ lcb_error_t lcb_http_verify_url(lcb_http_request_t req, const char *base, lcb_si
     unsigned int required_fields;
 
     if (base) {
-        ringbuffer_t urlbuf;
+        lcb_ringbuffer_t urlbuf;
         lcb_size_t nn = 1;
 
-        if (ringbuffer_initialize(&urlbuf, 1024) == -1) {
+        if (lcb_ringbuffer_initialize(&urlbuf, 1024) == -1) {
             return LCB_CLIENT_ENOMEM;
         }
         if (memcmp(base, "http://", 7) != 0) {
             nn += 7;
         }
-        if (!ringbuffer_ensure_capacity(&urlbuf, nbase + req->npath + nn)) {
-            ringbuffer_destruct(&urlbuf);
+        if (!lcb_ringbuffer_ensure_capacity(&urlbuf, nbase + req->npath + nn)) {
+            lcb_ringbuffer_destruct(&urlbuf);
             return LCB_CLIENT_ENOMEM;
         }
         if (nn > 1) {
-            lcb_assert(ringbuffer_write(&urlbuf, "http://", 7) == 7);
+            lcb_assert(lcb_ringbuffer_write(&urlbuf, "http://", 7) == 7);
         }
-        lcb_assert(ringbuffer_write(&urlbuf, base, nbase) == nbase);
+        lcb_assert(lcb_ringbuffer_write(&urlbuf, base, nbase) == nbase);
         if (req->path[0] != '/') {
-            lcb_assert(ringbuffer_write(&urlbuf, "/", 1) == 1);
+            lcb_assert(lcb_ringbuffer_write(&urlbuf, "/", 1) == 1);
         }
-        lcb_assert(ringbuffer_write(&urlbuf, req->path, req->npath) == req->npath);
+        lcb_assert(lcb_ringbuffer_write(&urlbuf, req->path, req->npath) == req->npath);
         req->nurl = urlbuf.nbytes;
         req->url = calloc(req->nurl + 1, sizeof(char));
         if (req->url == NULL) {
-            ringbuffer_destruct(&urlbuf);
+            lcb_ringbuffer_destruct(&urlbuf);
             return LCB_CLIENT_ENOMEM;
         }
-        lcb_assert(ringbuffer_read(&urlbuf, req->url, req->nurl) == req->nurl);
-        ringbuffer_destruct(&urlbuf);
+        lcb_assert(lcb_ringbuffer_read(&urlbuf, req->url, req->nurl) == req->nurl);
+        lcb_ringbuffer_destruct(&urlbuf);
     }
 
     required_fields = ((1 << UF_HOST) | (1 << UF_PORT) | (1 << UF_PATH));

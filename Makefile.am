@@ -73,6 +73,7 @@ pkginclude_HEADERS = \
                      include/libcouchbase/durability.h \
                      include/libcouchbase/error.h \
                      include/libcouchbase/http.h \
+                     include/libcouchbase/ringbuffer.h \
                      include/libcouchbase/sanitycheck.h \
                      include/libcouchbase/timings.h \
                      include/libcouchbase/types.h \
@@ -175,7 +176,6 @@ libcouchbase_la_SOURCES = \
                         src/readwrite.c \
                         src/remove.c \
                         src/ringbuffer.c \
-                        src/ringbuffer.h \
                         src/sanitycheck.c \
                         src/server.c \
                         src/server_connect.c \
@@ -292,7 +292,6 @@ tests_unit_tests_SOURCES = \
                            src/base64.c \
                            src/hashset.c \
                            src/list.c \
-                           src/ringbuffer.c \
                            src/url_encoding.c \
                            tests/base64-unit-test.cc \
                            tests/behavior-unit-tests.cc \
