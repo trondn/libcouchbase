@@ -138,10 +138,10 @@ extern "C" {
 
     struct sockaddr;
 
-    struct lcb_iovec_st {
+    typedef struct lcb_iovec_st {
         char *iov_base;
         lcb_size_t iov_len;
-    };
+    } lcb_iovec_t;
 
     struct lcb_nameinfo_st {
         struct {
